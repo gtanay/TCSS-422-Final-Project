@@ -67,6 +67,49 @@ void PCB_set_pc(PCB_p p, unsigned long pc, enum PCB_ERROR *error) {
 	p->pc = pc;
 }
 
+void PCB_set_sw(PCB_p p, unsigned int i, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return;
+	}
+	p->sw = i;
+}
+void PCB_set_max_pc(PCB_p p, unsigned long i, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return;
+	}
+	p->max_pc = i;
+}
+void PCB_set_creation(PCB_p p, unsigned long i, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return;
+	}
+	p->creation = i;
+}
+void PCB_set_termination(PCB_p p, unsigned long i, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return;
+	}
+	p->termination = i;
+}
+void PCB_set_terminate(PCB_p p, unsigned int i, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return;
+	}
+	p->terminate = i;
+}
+void PCB_set_term_count(PCB_p p, unsigned int i, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return;
+	}
+	p->term_count = i;
+}
+
 unsigned long PCB_get_pid(PCB_p p, enum PCB_ERROR *error) {
 	if (p == NULL) {
 		*error = PCB_NULL_POINTER;
@@ -98,6 +141,53 @@ unsigned long PCB_get_pc(PCB_p p, enum PCB_ERROR *error) {
 	}
 	return p->pc;
 } 
+
+unsigned int PCB_get_sw(PCB_p p, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return 0;
+	}
+	return p->sw;
+}
+unsigned long PCB_get_max_pc(PCB_p p, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return 0;
+	}	
+	return p->max_pc;
+}
+
+unsigned long PCB_get_creation(PCB_p p, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return 0;
+	}	
+	return p->creation;
+}
+
+unsigned long PCB_get_termination(PCB_p p, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return 0;
+	}	
+	return p->termination;
+}
+
+unsigned int PCB_get_terminate(PCB_p p, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return 0;
+	}
+	return p->terminate;
+}
+
+unsigned int PCB_get_term_count(PCB_p p, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return 0;
+	}
+	return p->term_count;
+}
 
 void PCB_print(PCB_p p, enum PCB_ERROR *error) {
 	if (p == NULL) {
