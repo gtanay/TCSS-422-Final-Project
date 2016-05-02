@@ -3,18 +3,18 @@ CFLAGS=-Wall -std=c99
 
 
 
-all: Round_Robin
+all: CPU
 
 
-Round_Robin: Round_Robin.o PCB.o PCB_Queue.o
-	gcc Round_Robin.o PCB.o PCB_Queue.o -o Round_Robin
+CPU: CPU.o PCB.o PCB_Queue.o
+	gcc CPU.o PCB.o PCB_Queue.o -o CPU
 
 
 
 
 
-Round_Robin.o: Round_Robin.c
-	gcc $(CFLAGS) -c Round_Robin.c
+CPU.o: CPU.c
+	gcc $(CFLAGS) -c CPU.c
 PCB_Queue.o: PCB_Queue.c
 	gcc $(CFLAGS) -c PCB_Queue.c 
 PCB.o: PCB.c
