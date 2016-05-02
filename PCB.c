@@ -4,12 +4,19 @@
 #include <stdio.h>
 
 PCB_p PCB_construct(enum PCB_ERROR *error) {
-	void *memPtr = malloc(sizeof(struct PCB));
-	if (memPtr == NULL) {
+	PCB_p p = malloc(sizeof(struct PCB));
+	if (p == NULL) {
 		*error = PCB_MEM_ALLOC_FAIL;
 		return NULL;
 	} 
-	return memPtr;
+	PCB_set_pid(p, 0, error);
+	PCB_set_state(p, PCB_STATE_NEW, error);
+	PCB_set_priority(p, PCB_PRIORITY_MAX, error);
+	PCB_set_pc(p, 0, error);
+	PCB_set_max_pc(p, 10000, error);
+	PCB_set_terminate(p, 1, error);
+	PCB_set_term_count(p, 0, error);
+	return p;
 }
 
 void PCB_destruct(PCB_p p, enum PCB_ERROR *error) {
@@ -17,14 +24,6 @@ void PCB_destruct(PCB_p p, enum PCB_ERROR *error) {
 }
 
 void PCB_init(PCB_p p, enum PCB_ERROR *error) {
-	if (p == NULL) {
-		*error = PCB_NULL_POINTER;
-		return;
-	}
-	PCB_set_pid(p, 0, error);
-	PCB_set_state(p, PCB_STATE_NEW, error);
-	PCB_set_priority(p, PCB_PRIORITY_MAX, error);
-	PCB_set_pc(p, 0, error);
 }
 
 void PCB_set_pid(PCB_p p, unsigned long pid, enum PCB_ERROR *error) {
