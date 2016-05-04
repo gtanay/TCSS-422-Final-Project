@@ -1,20 +1,20 @@
-CFLAGS=-Wall -std=c99
+CFLAGS=-Wall 
 
 
 
 
-all: CPU
+all: Thread_Sim
 
 
-CPU: CPU.o PCB.o PCB_Queue.o
-	gcc CPU.o PCB.o PCB_Queue.o -o CPU
+Thread_Sim: Thread_Sim.o PCB.o PCB_Queue.o
+	gcc Thread_Sim.o PCB.o PCB_Queue.o -o Thread_Sim
 
 
 
 
 
-CPU.o: CPU.c
-	gcc $(CFLAGS) -c CPU.c
+Thread_Sim.o: Thread_Sim.c
+	gcc $(CFLAGS) -c Thread_Sim.c
 PCB_Queue.o: PCB_Queue.c
 	gcc $(CFLAGS) -c PCB_Queue.c 
 PCB.o: PCB.c

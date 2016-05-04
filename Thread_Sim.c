@@ -5,37 +5,37 @@
 #include "PCB.h"
 #include "PCB_Queue.h"
 
-#define SLEEP_TIME 1000000
+#define SLEEP_TIME 100000000
 #define IO_TIME 1000
 
-typedef struct timer_arguments{
+typedef struct {
 	pthread_mutex_t* mutex;
 	pthread_cond_t* condition;
-};
+} timer_arguments;
 
 typedef timer_arguments* timer_args_p;
 
-
 void* fixedTimer(void* arguments) {
 	struct timespec sleep_time;
-	timer_args_p args = (timer_args_p) arguments 
-	
-	sleep_time.tv_nanoseconds = SLEEP_TIME;
+	timer_args_p args = (timer_args_p) arguments; 
+	sleep_time.tv_nsec = SLEEP_TIME;
 	pthread_mutex_lock(args->mutex);
 	for(;;) {
-		nanosleep(sleep_time, NULL);
+		printf("a\n");
+		nanosleep(&sleep_time, NULL);
 		pthread_cond_wait(args->condition, args->mutex);
 	}
 }
 
 void* ioTimer(void* arguments) {
 	struct timespec sleep_time;
-	timer_args_p args = (timer_args_p) arguments 
+	timer_args_p args = (timer_args_p) arguments; 
 	
-	sleep_time.tv_nanoseconds = SLEEP_TIME * (rand() % IO_TIME);
+	sleep_time.tv_nsec = SLEEP_TIME;// * (rand() % IO_TIME);
 	pthread_mutex_lock(args->mutex);
 	for(;;) {
-		nanosleep(sleep_time, NULL);
+		printf("bbbb\n");
+		nanosleep(&sleep_time, NULL);
 		pthread_cond_wait(args->condition, args->mutex);
 	}
 }
@@ -55,9 +55,9 @@ int main() {
 	pthread_cond_init(&cond_io_a, NULL);
 	pthread_cond_init(&cond_io_b, NULL);
 	
-	system_timer_args = malloc(sizeof(struct timer_arguments));
-	io_timer_a_args = malloc(sizeof(struct timer_arguments));
-	io_timer_b_args = malloc(sizeof(struct timer_arguments));
+	system_timer_args = malloc(sizeof(timer_arguments));
+	io_timer_a_args = malloc(sizeof(timer_arguments));
+	io_timer_b_args = malloc(sizeof(timer_arguments));
 	
 	system_timer_args->mutex = &mutex_timer;
 	system_timer_args->condition = &cond_timer;
@@ -65,39 +65,54 @@ int main() {
 	io_timer_a_args->mutex = &mutex_io_a;
 	io_timer_a_args->condition = &cond_io_a;
 	
-	io_timer_a_args->mutex = &mutex_io_a;
-	io_timer_a_args->condition = &cond_io_a;
+	io_timer_b_args->mutex = &mutex_io_b;
+	io_timer_b_args->condition = &cond_io_b;
 	
 	srand(time(NULL));
 	
-	if(pthread_create(&system_timer, NULL, fixed_timer, (void*) system_timer_args)) {
+	if(pthread_create(&system_timer, NULL, &fixedTimer, (void*) system_timer_args)) {
 		printf("\nERROR creating timer thread");
 		return 1;
 	}
-	if(pthread_create(&io_timer_a, NULL, random_timer, (void*) io_timer_a_args)) {
+	if(pthread_create(&io_timer_a, NULL, &ioTimer, (void*) io_timer_a_args)) {
 		printf("\nERROR creating io thread");
 		return 1;
 	}
-	if(pthread_create(&io_timer_b, NULL, random_timer, (void*) io_timer_a_args)) {
+	if(pthread_create(&io_timer_b, NULL, &ioTimer, (void*) io_timer_a_args)) {
 		printf("\nERROR creating io thread");
 		return 1;
 	}
 	
 	while(1){
+		//pc++
 		if(!pthread_mutex_trylock(&mutex_timer)) {
-			printf("foo");
-			pthread_cond_signal(&cond_timer);
+			//timer is still sleeping
+		} else {
+			//timer is over
+			//timer isr, switch to next pcb
+			pthread_cond_signal(&cond_timer);	
 			pthread_mutex_unlock(&mutex_timer);
 		}
 		if(!pthread_mutex_trylock(&mutex_io_a)) {
-			printf("bar");
+
+		} else {
+			//move head of waiting queue to ready queue
 			pthread_cond_signal(&cond_io_a);
 			pthread_mutex_unlock(&mutex_io_a);
 		}
 		if(!pthread_mutex_trylock(&mutex_io_b)) {
-			printf("foo");
+
+		} else {
 			pthread_cond_signal(&cond_io_b);
 			pthread_mutex_unlock(&mutex_io_b);
 		}
+
+
+		//if (pc == io trap) {
+			//call io trap handler
+			//		move pcb to waiting queue
+		//}
+	
+
 	}
 }
