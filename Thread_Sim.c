@@ -86,26 +86,23 @@ int main() {
 	while(1){
 		//pc++
 		if(!pthread_mutex_trylock(&mutex_timer)) {
-			//timer is still sleeping
-		} else {
+			
 			//timer is over
 			//timer isr, switch to next pcb
 			pthread_cond_signal(&cond_timer);	
 			pthread_mutex_unlock(&mutex_timer);
-		}
+		} 
+		//timer is still sleeping
+			
 		if(!pthread_mutex_trylock(&mutex_io_a)) {
-
-		} else {
 			//move head of waiting queue to ready queue
 			pthread_cond_signal(&cond_io_a);
 			pthread_mutex_unlock(&mutex_io_a);
-		}
+		} 
 		if(!pthread_mutex_trylock(&mutex_io_b)) {
-
-		} else {
 			pthread_cond_signal(&cond_io_b);
 			pthread_mutex_unlock(&mutex_io_b);
-		}
+		} 
 
 
 		//if (pc == io trap) {
