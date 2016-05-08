@@ -6,6 +6,7 @@
 
 #include "PCB.h"
 #include "PCB_Queue.h"
+#include "PCB_Errors.h"
 
 #define SLEEP_TIME 100000000
 #define IO_TIME 1000
@@ -48,7 +49,7 @@ void* ioTimer(void* arguments) {
 	for(;;) {
 		printf("bbbb\n");
 		// nanosleep(&sleep_time, NULL);
-		sleep(1);
+		sleep(3);
 		pthread_cond_wait(args->condition, args->mutex);
 	}
 }
@@ -86,19 +87,23 @@ void scheduler(int interruptType) {
 			PCB_print(currentPCB, &error);
 			PCB_Queue_enqueue(readyQueue, currentPCB, &error);
 		}
-	} else if (interruptType == 2) {
-		PCB_set_state(currentPCB, PCB_STATE_HALTED, &error);
-		printf("Terminated:\t");
-		PCB_print(currentPCB, &error);
-		PCB_Queue_enqueue(terminatedQueue, currentPCB, &error);
-	}
+	} 
 	dispatcher();
 }
 
-void isr(int interruptType) {
+void isrTimer() {
 	PCB_set_state(currentPCB, PCB_STATE_INTERRUPTED, &error);
 	PCB_set_pc(currentPCB, sysStack, &error);
-	scheduler(interruptType);
+	scheduler(1);
+}
+
+void terminate() {
+	PCB_set_pc(currentPCB, sysStack, &error);
+	PCB_set_state(currentPCB, PCB_STATE_HALTED, &error);
+	printf("Terminated:\t");
+	PCB_print(currentPCB, &error);
+	PCB_Queue_enqueue(terminatedQueue, currentPCB, &error);
+	dispatcher();
 }
 
 int main() {
@@ -157,7 +162,6 @@ int main() {
 		PCB_p p = PCB_construct(&error);
 		PCB_set_pid(p, j, &error);
 		PCB_Queue_enqueue(createdQueue, p, &error);
-		
 		printf("Created:\t");
 		PCB_print(p, &error);
 	}
@@ -167,18 +171,19 @@ int main() {
 		if(!pthread_mutex_trylock(&mutex_timer)) {
 			printf("Switching from:\t");
 			PCB_print(currentPCB, &error);
-			isr(1);
+			isrTimer();
 			pthread_cond_signal(&cond_timer);	
 			pthread_mutex_unlock(&mutex_timer);
-			sleep(1);
+			sleep(1); //temp fix
 		} 
 			
 		if(!pthread_mutex_trylock(&mutex_io_a)) {
-			//move head of waiting queue to ready queue
+			//isr
 			pthread_cond_signal(&cond_io_a);
 			pthread_mutex_unlock(&mutex_io_a);
 		} 
 		if(!pthread_mutex_trylock(&mutex_io_b)) {
+			//isr
 			pthread_cond_signal(&cond_io_b);
 			pthread_mutex_unlock(&mutex_io_b);
 		} 
@@ -193,7 +198,7 @@ int main() {
 			currentPCB->term_count++;
 			if (currentPCB->terminate != 0 && 
 					currentPCB->terminate <= currentPCB->term_count) {
-				isr(2);
+				terminate();
 			}
 		}
 
