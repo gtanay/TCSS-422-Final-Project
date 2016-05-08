@@ -2,6 +2,7 @@
 #include "PCB_Errors.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 PCB_p PCB_construct(enum PCB_ERROR *error) {
 	PCB_p p = malloc(sizeof(struct PCB));
@@ -16,6 +17,8 @@ PCB_p PCB_construct(enum PCB_ERROR *error) {
 	PCB_set_max_pc(p, 10000, error);
 	PCB_set_terminate(p, 0, error);
 	PCB_set_term_count(p, 0, error);
+	PCB_set_creation(p, time(NULL), error);
+	PCB_set_termination(p, 0, error);
 	return p;
 }
 

@@ -99,6 +99,7 @@ void isrTimer() {
 void terminate() {
 	PCB_set_pc(currentPCB, sysStack, &error);
 	PCB_set_state(currentPCB, PCB_STATE_HALTED, &error);
+	PCB_set_termination(currentPCB, time(NULL), &error);
 	printf("Terminated:\t");
 	PCB_print(currentPCB, &error);
 	PCB_Queue_enqueue(terminatedQueue, currentPCB, &error);
@@ -157,6 +158,7 @@ int main() {
 	PCB_set_pid(idl, IDL_PID, &error);
 	PCB_set_state(idl, PCB_STATE_RUNNING, &error);
 	PCB_set_terminate(idl, 0, &error);
+	PCB_set_max_pc(idl, 0, &error);
 	currentPCB = idl;
 
 	createdQueue = PCB_Queue_construct(&error);
@@ -174,10 +176,20 @@ int main() {
 	while(1) {
 		if (error != PCB_SUCCESS) {
 			printf("\nERROR: error != PCB_SUCCESS");
-			exit(EXIT_FAILURE);
+			return 1;
 		}
 
-		sysStack++;
+		if (sysStack >= currentPCB->max_pc) {
+			sysStack = 0;
+			currentPCB->term_count++;
+			if (currentPCB->terminate != 0 && 
+					currentPCB->terminate <= currentPCB->term_count) {
+				terminate();
+			}
+		} else {
+			sysStack++;
+		}
+		
 		if(system_timer_args->flag == 0 && !pthread_mutex_trylock(&mutex_timer)) {
 			system_timer_args->flag = 1;
 			printf("\nSwitching from:\t");
@@ -204,14 +216,7 @@ int main() {
 			//call io trap handler
 			//		move pcb to waiting queue
 		//}
-		if (sysStack >= currentPCB->max_pc) {
-			sysStack = 0;
-			currentPCB->term_count++;
-			if (currentPCB->terminate != 0 && 
-					currentPCB->terminate <= currentPCB->term_count) {
-				terminate();
-			}
-		}
+		
 
 	}
 }
