@@ -46,10 +46,10 @@ void* timer(void* arguments) {
 	for(;;) {
 		int sleep_length = args->sleep_length_min + rand() % (args->sleep_length_max - args->sleep_length_min + 1);
 		sleep_time.tv_nsec = sleep_length;
-		// something with args->flag
 		nanosleep(&sleep_time, NULL);
 		printf("timer %u\n", sleep_length); // debug
 		pthread_cond_wait(args->condition, args->mutex);
+		args->flag = 0;
 	}
 }
 
@@ -178,27 +178,25 @@ int main() {
 		}
 
 		sysStack++;
-		if(!pthread_mutex_trylock(&mutex_timer)) {
-			printf("\n");
-			printf("Switching from:\t");
+		if(system_timer_args->flag == 0 && !pthread_mutex_trylock(&mutex_timer)) {
+			system_timer_args->flag = 1;
+			printf("\nSwitching from:\t");
 			PCB_print(currentPCB, &error);
 			isrTimer();
 			pthread_cond_signal(&cond_timer);	
 			pthread_mutex_unlock(&mutex_timer);
-			sleep(1); //temp fix
-			//system_timer_args->flag
 		} 
-		if(!pthread_mutex_trylock(&mutex_io_a)) {
+		if(io_timer_a_args->flag == 0 && !pthread_mutex_trylock(&mutex_io_a)) {
+			io_timer_a_args->flag = 1;
 			//isr
 			pthread_cond_signal(&cond_io_a);
 			pthread_mutex_unlock(&mutex_io_a);
-			//io_timer_a_args->flag
 		} 
-		if(!pthread_mutex_trylock(&mutex_io_b)) {
+		if(io_timer_b_args->flag == 0 && !pthread_mutex_trylock(&mutex_io_b)) {
+			io_timer_b_args->flag = 1;
 			//isr
 			pthread_cond_signal(&cond_io_b);
 			pthread_mutex_unlock(&mutex_io_b);
-			//io_timer_b_args->flag
 		} 
 
 
