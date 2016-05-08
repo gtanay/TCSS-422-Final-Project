@@ -14,7 +14,7 @@ PCB_p PCB_construct(enum PCB_ERROR *error) {
 	PCB_set_priority(p, PCB_PRIORITY_MAX, error);
 	PCB_set_pc(p, 0, error);
 	PCB_set_max_pc(p, 10000, error);
-	PCB_set_terminate(p, 1, error);
+	PCB_set_terminate(p, 0, error);
 	PCB_set_term_count(p, 0, error);
 	return p;
 }
@@ -193,7 +193,9 @@ void PCB_print(PCB_p p, enum PCB_ERROR *error) {
 		*error = PCB_NULL_POINTER;
 		return;
 	}
-	printf("PID: 0x%lX, Priority: 0x%X, State: %u, PC: 0x%lX\n", 
+	printf("PID: 0x%lX, Priority: 0x%X, State: %u, PC: 0x%lX, MaxPC: 0x%lx, Terminate: %u, TermCount: %u\n", 
 			PCB_get_pid(p, error), PCB_get_priority(p, error),
-			PCB_get_state(p, error), PCB_get_pc(p, error));
+			PCB_get_state(p, error), PCB_get_pc(p, error),
+			PCB_get_max_pc(p, error), PCB_get_terminate(p, error),
+			PCB_get_term_count(p, error));
 }

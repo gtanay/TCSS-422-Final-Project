@@ -20,6 +20,7 @@ typedef timer_arguments* timer_args_p;
 
 PCB_Queue_p createdQueue;
 PCB_Queue_p readyQueue;
+PCB_Queue_p terminatedQueue;
 PCB_p currentPCB;
 PCB_p idl;
 unsigned long sysStack;
@@ -65,6 +66,12 @@ void dispatcher() {
 }
 
 void scheduler(int interruptType) {
+	while (!PCB_Queue_is_empty(terminatedQueue, &error)) {
+		PCB_p p = PCB_Queue_dequeue(terminatedQueue, &error);
+		printf("Deallocated:\t");
+		PCB_print(p, &error);
+		PCB_destruct(p, &error);
+	}
 	while (!PCB_Queue_is_empty(createdQueue, &error)) {
 		PCB_p p = PCB_Queue_dequeue(createdQueue, &error);
 		PCB_set_state(p, PCB_STATE_READY, &error);
@@ -79,14 +86,19 @@ void scheduler(int interruptType) {
 			PCB_print(currentPCB, &error);
 			PCB_Queue_enqueue(readyQueue, currentPCB, &error);
 		}
-	} 
+	} else if (interruptType == 2) {
+		PCB_set_state(currentPCB, PCB_STATE_HALTED, &error);
+		printf("Terminated:\t");
+		PCB_print(currentPCB, &error);
+		PCB_Queue_enqueue(terminatedQueue, currentPCB, &error);
+	}
 	dispatcher();
 }
 
-void isrTimer() {
+void isr(int interruptType) {
 	PCB_set_state(currentPCB, PCB_STATE_INTERRUPTED, &error);
 	PCB_set_pc(currentPCB, sysStack, &error);
-	scheduler(1);
+	scheduler(interruptType);
 }
 
 int main() {
@@ -134,10 +146,12 @@ int main() {
 	idl = PCB_construct(&error);
 	PCB_set_pid(idl, IDL_PID, &error);
 	PCB_set_state(idl, PCB_STATE_RUNNING, &error);
+	PCB_set_terminate(idl, 0, &error);
 	currentPCB = idl;
 
 	createdQueue = PCB_Queue_construct(&error);
 	readyQueue = PCB_Queue_construct(&error);
+	terminatedQueue = PCB_Queue_construct(&error);
 
 	for (int j = 0; j < 5; j++) {
 		PCB_p p = PCB_construct(&error);
@@ -153,10 +167,10 @@ int main() {
 		if(!pthread_mutex_trylock(&mutex_timer)) {
 			printf("Switching from:\t");
 			PCB_print(currentPCB, &error);
-			isrTimer();
+			isr(1);
 			pthread_cond_signal(&cond_timer);	
 			pthread_mutex_unlock(&mutex_timer);
-			// sleep(1);
+			sleep(1);
 		} 
 			
 		if(!pthread_mutex_trylock(&mutex_io_a)) {
@@ -174,5 +188,14 @@ int main() {
 			//call io trap handler
 			//		move pcb to waiting queue
 		//}
+		if (sysStack >= currentPCB->max_pc) {
+			sysStack = 0;
+			currentPCB->term_count++;
+			if (currentPCB->terminate != 0 && 
+					currentPCB->terminate <= currentPCB->term_count) {
+				isr(2);
+			}
+		}
+
 	}
 }
