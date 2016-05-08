@@ -33,7 +33,6 @@ void* fixedTimer(void* arguments) {
 	sleep_time.tv_nsec = SLEEP_TIME;
 	pthread_mutex_lock(args->mutex); 
 	for(;;) {
-		printf("a\n");
 		// nanosleep(&sleep_time, NULL);
 		sleep(3);
 		pthread_cond_wait(args->condition, args->mutex);
@@ -47,7 +46,6 @@ void* ioTimer(void* arguments) {
 	sleep_time.tv_nsec = SLEEP_TIME;// * (rand() % IO_TIME);
 	pthread_mutex_lock(args->mutex);
 	for(;;) {
-		printf("bbbb\n");
 		// nanosleep(&sleep_time, NULL);
 		sleep(3);
 		pthread_cond_wait(args->condition, args->mutex);
@@ -167,8 +165,14 @@ int main() {
 	}
 
 	while(1) {
+		if (error != PCB_SUCCESS) {
+			printf("\nERROR: error != PCB_SUCCESS");
+			exit(EXIT_FAILURE);
+		}
+
 		sysStack++;
 		if(!pthread_mutex_trylock(&mutex_timer)) {
+			printf("\n");
 			printf("Switching from:\t");
 			PCB_print(currentPCB, &error);
 			isrTimer();
