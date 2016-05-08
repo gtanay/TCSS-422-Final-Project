@@ -12,6 +12,12 @@
 #define IO_TIME 1000
 #define IDL_PID 0xFFFFFFFF
 
+enum INTERRUPT_TYPE {
+	INTERRUPT_TYPE_TIMER = 1, 
+	INTERRUPT_TYPE_IO_A, 
+	INTERRUPT_TYPE_IO_B
+};
+
 typedef struct {
 	pthread_mutex_t* mutex;
 	pthread_cond_t* condition;
@@ -64,7 +70,7 @@ void dispatcher() {
 	sysStack = PCB_get_pc(currentPCB, &error);
 }
 
-void scheduler(int interruptType) {
+void scheduler(enum INTERRUPT_TYPE interruptType) {
 	while (!PCB_Queue_is_empty(terminatedQueue, &error)) {
 		PCB_p p = PCB_Queue_dequeue(terminatedQueue, &error);
 		printf("Deallocated:\t");
@@ -78,7 +84,7 @@ void scheduler(int interruptType) {
 		PCB_print(p, &error);
 		PCB_Queue_enqueue(readyQueue, p, &error);
 	}
-	if (interruptType == 1) {
+	if (interruptType == INTERRUPT_TYPE_TIMER) {
 		PCB_set_state(currentPCB, PCB_STATE_READY, &error);
 		if (PCB_get_pid(currentPCB, &error) != IDL_PID) {
 			printf("Returned:\t");
@@ -92,7 +98,7 @@ void scheduler(int interruptType) {
 void isrTimer() {
 	PCB_set_state(currentPCB, PCB_STATE_INTERRUPTED, &error);
 	PCB_set_pc(currentPCB, sysStack, &error);
-	scheduler(1);
+	scheduler(INTERRUPT_TYPE_TIMER);
 }
 
 void terminate() {
@@ -180,7 +186,6 @@ int main() {
 			pthread_mutex_unlock(&mutex_timer);
 			sleep(1); //temp fix
 		} 
-			
 		if(!pthread_mutex_trylock(&mutex_io_a)) {
 			//isr
 			pthread_cond_signal(&cond_io_a);
