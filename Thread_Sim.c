@@ -8,8 +8,9 @@
 #include "PCB_Queue.h"
 #include "PCB_Errors.h"
 
-#define SLEEP_TIME 100000000
-#define IO_TIME 1000
+#define SLEEP_TIME 990000000
+#define IO_TIME_MIN SLEEP_TIME * 1
+#define IO_TIME_MAX SLEEP_TIME * 1
 #define IDL_PID 0xFFFFFFFF
 
 enum INTERRUPT_TYPE {
@@ -39,8 +40,8 @@ void* fixedTimer(void* arguments) {
 	sleep_time.tv_nsec = SLEEP_TIME;
 	pthread_mutex_lock(args->mutex); 
 	for(;;) {
-		// nanosleep(&sleep_time, NULL);
-		sleep(3);
+		nanosleep(&sleep_time, NULL);
+		printf("timer\n"); // debug
 		pthread_cond_wait(args->condition, args->mutex);
 	}
 }
@@ -48,12 +49,12 @@ void* fixedTimer(void* arguments) {
 void* ioTimer(void* arguments) {
 	struct timespec sleep_time;
 	timer_args_p args = (timer_args_p) arguments; 
-	
-	sleep_time.tv_nsec = SLEEP_TIME;// * (rand() % IO_TIME);
 	pthread_mutex_lock(args->mutex);
 	for(;;) {
-		// nanosleep(&sleep_time, NULL);
-		sleep(3);
+		int randomSleep = IO_TIME_MIN + rand() % (IO_TIME_MAX - IO_TIME_MIN + 1);
+		sleep_time.tv_nsec = randomSleep;
+		nanosleep(&sleep_time, NULL);
+		printf("io %u\n", randomSleep); // debug
 		pthread_cond_wait(args->condition, args->mutex);
 	}
 }
