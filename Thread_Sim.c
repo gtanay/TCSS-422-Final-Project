@@ -8,9 +8,11 @@
 #include "PCB_Queue.h"
 #include "PCB_Errors.h"
 
+// time must be under 1 billion
 #define SLEEP_TIME 990000000
 #define IO_TIME_MIN SLEEP_TIME * 1
 #define IO_TIME_MAX SLEEP_TIME * 1
+
 #define IDL_PID 0xFFFFFFFF
 
 enum INTERRUPT_TYPE {
@@ -22,6 +24,9 @@ enum INTERRUPT_TYPE {
 typedef struct {
 	pthread_mutex_t* mutex;
 	pthread_cond_t* condition;
+	int flag;
+	int sleep_length_min;
+	int sleep_length_max;
 } timer_arguments;
 
 typedef timer_arguments* timer_args_p;
@@ -34,27 +39,16 @@ PCB_p idl;
 unsigned long sysStack;
 enum PCB_ERROR error = PCB_SUCCESS;
 
-void* fixedTimer(void* arguments) {
-	struct timespec sleep_time;
-	timer_args_p args = (timer_args_p) arguments; 
-	sleep_time.tv_nsec = SLEEP_TIME;
-	pthread_mutex_lock(args->mutex); 
-	for(;;) {
-		nanosleep(&sleep_time, NULL);
-		printf("timer\n"); // debug
-		pthread_cond_wait(args->condition, args->mutex);
-	}
-}
-
-void* ioTimer(void* arguments) {
+void* timer(void* arguments) {
 	struct timespec sleep_time;
 	timer_args_p args = (timer_args_p) arguments; 
 	pthread_mutex_lock(args->mutex);
 	for(;;) {
-		int randomSleep = IO_TIME_MIN + rand() % (IO_TIME_MAX - IO_TIME_MIN + 1);
-		sleep_time.tv_nsec = randomSleep;
+		int sleep_length = args->sleep_length_min + rand() % (args->sleep_length_max - args->sleep_length_min + 1);
+		sleep_time.tv_nsec = sleep_length;
+		// something with args->flag
 		nanosleep(&sleep_time, NULL);
-		printf("io %u\n", randomSleep); // debug
+		printf("timer %u\n", sleep_length); // debug
 		pthread_cond_wait(args->condition, args->mutex);
 	}
 }
@@ -131,24 +125,30 @@ int main() {
 	
 	system_timer_args->mutex = &mutex_timer;
 	system_timer_args->condition = &cond_timer;
+	system_timer_args->sleep_length_min = SLEEP_TIME;
+	system_timer_args->sleep_length_max = SLEEP_TIME;
 	
 	io_timer_a_args->mutex = &mutex_io_a;
 	io_timer_a_args->condition = &cond_io_a;
+	io_timer_a_args->sleep_length_min = IO_TIME_MIN;
+	io_timer_a_args->sleep_length_max = IO_TIME_MAX;
 	
 	io_timer_b_args->mutex = &mutex_io_b;
 	io_timer_b_args->condition = &cond_io_b;
+	io_timer_b_args->sleep_length_min = IO_TIME_MIN;
+	io_timer_b_args->sleep_length_max = IO_TIME_MAX;
 	
 	srand(time(NULL));
 	
-	if(pthread_create(&system_timer, NULL, &fixedTimer, (void*) system_timer_args)) {
+	if(pthread_create(&system_timer, NULL, &timer, (void*) system_timer_args)) {
 		printf("\nERROR creating timer thread");
 		return 1;
 	}
-	if(pthread_create(&io_timer_a, NULL, &ioTimer, (void*) io_timer_a_args)) {
+	if(pthread_create(&io_timer_a, NULL, &timer, (void*) io_timer_a_args)) {
 		printf("\nERROR creating io thread a");
 		return 1;
 	}
-	if(pthread_create(&io_timer_b, NULL, &ioTimer, (void*) io_timer_a_args)) {
+	if(pthread_create(&io_timer_b, NULL, &timer, (void*) io_timer_b_args)) {
 		printf("\nERROR creating io thread b");
 		return 1;
 	}
@@ -186,16 +186,19 @@ int main() {
 			pthread_cond_signal(&cond_timer);	
 			pthread_mutex_unlock(&mutex_timer);
 			sleep(1); //temp fix
+			//system_timer_args->flag
 		} 
 		if(!pthread_mutex_trylock(&mutex_io_a)) {
 			//isr
 			pthread_cond_signal(&cond_io_a);
 			pthread_mutex_unlock(&mutex_io_a);
+			//io_timer_a_args->flag
 		} 
 		if(!pthread_mutex_trylock(&mutex_io_b)) {
 			//isr
 			pthread_cond_signal(&cond_io_b);
 			pthread_mutex_unlock(&mutex_io_b);
+			//io_timer_b_args->flag
 		} 
 
 
