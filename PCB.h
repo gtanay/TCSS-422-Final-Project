@@ -3,6 +3,7 @@
 #include "PCB_Errors.h"
 
 #define PCB_PRIORITY_MAX 15
+#define PCB_TRAP_LENGTH 4
 
 enum PCB_STATE_TYPE {
 	PCB_STATE_NEW = 0, 
@@ -28,8 +29,8 @@ struct PCB {
 	unsigned long termination;
 	unsigned int terminate;
 	unsigned int term_count;
-	unsigned long io_1_traps[4];
-	unsigned long io_2_traps[4];
+	unsigned long io_1_traps[PCB_TRAP_LENGTH];
+	unsigned long io_2_traps[PCB_TRAP_LENGTH];
 };
 
 typedef struct PCB * PCB_p;
