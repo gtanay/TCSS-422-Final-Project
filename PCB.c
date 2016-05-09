@@ -15,7 +15,7 @@ PCB_p PCB_construct(enum PCB_ERROR *error) {
 	PCB_set_priority(p, PCB_PRIORITY_MAX, error);
 	PCB_set_pc(p, 0, error);
 	PCB_set_max_pc(p, 100000000, error);
-	PCB_set_terminate(p, 0, error);
+	PCB_set_terminate(p, 1, error);
 	PCB_set_term_count(p, 0, error);
 	PCB_set_creation(p, time(NULL), error);
 	PCB_set_termination(p, 0, error);

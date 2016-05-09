@@ -138,10 +138,7 @@ void tsr(enum INTERRUPT_TYPE interruptType) {
 	} else if (interruptType == INTERRUPT_TYPE_IO_B) {
 		printf("Moved to IO B:\t");
 		PCB_Queue_enqueue(waitingQueueB, currentPCB, &error);
-	} else {
-		printf("ERROR: invalid io device");
-		exit(EXIT_FAILURE);
-	}
+	} 
 	PCB_print(currentPCB, &error);
 	dispatcher();
 }
