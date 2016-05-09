@@ -1,3 +1,13 @@
+/*
+ * Thread_Sim.c
+ * Group: Hunter Bennett, Geoffrey Tanay, Christine Vu, Daniel Bayless
+ * Date: May 8, 2016
+ *
+ *
+ * Simulates the running of a processor with two I/O devices.
+ * Utilizes threads to simulate the interrupt timing.
+ */
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
