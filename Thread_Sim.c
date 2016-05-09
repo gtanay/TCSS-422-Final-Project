@@ -90,13 +90,13 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 		dispatcher();
 	} else if (interruptType == INTERRUPT_TYPE_IO_A) {
 		PCB_p p = PCB_Queue_dequeue(waitingQueueA, &error);
-		printf("Moved from IO A\t");
+		printf("Moved from IO A:");
 		PCB_print(p, &error);
 		PCB_set_state(p, PCB_STATE_READY, &error);
 		PCB_Queue_enqueue(readyQueue, p, &error);
 	} else if (interruptType == INTERRUPT_TYPE_IO_B) {
 		PCB_p p = PCB_Queue_dequeue(waitingQueueB, &error);
-		printf("Moved from IO B\t");
+		printf("Moved from IO B:");
 		PCB_print(p, &error);
 		PCB_set_state(p, PCB_STATE_READY, &error);
 		PCB_Queue_enqueue(readyQueue, p, &error);
@@ -224,6 +224,29 @@ int main() {
 			printf("\nERROR: error != PCB_SUCCESS");
 			return 1;
 		}
+		
+		if(system_timer_args->flag == 0 && !pthread_mutex_trylock(&mutex_timer)) {
+			system_timer_args->flag = 1;
+			isrTimer();
+			pthread_cond_signal(&cond_timer);	
+			pthread_mutex_unlock(&mutex_timer);
+		} 
+		if(io_timer_a_args->flag == 0 && !PCB_Queue_is_empty(waitingQueueA, &error) && !pthread_mutex_trylock(&mutex_io_a)) {
+			isrIO(INTERRUPT_TYPE_IO_A);
+			if (!PCB_Queue_is_empty(waitingQueueA, &error)) {
+				io_timer_a_args->flag = 1;
+				pthread_cond_signal(&cond_io_a);
+			}
+			pthread_mutex_unlock(&mutex_io_a);
+		} 
+		if(io_timer_b_args->flag == 0 && !PCB_Queue_is_empty(waitingQueueB, &error) && !pthread_mutex_trylock(&mutex_io_b)) {
+			isrIO(INTERRUPT_TYPE_IO_B);
+			if (!PCB_Queue_is_empty(waitingQueueB, &error)) {
+				io_timer_b_args->flag = 1;
+				pthread_cond_signal(&cond_io_b);
+			}
+			pthread_mutex_unlock(&mutex_io_b);
+		} 
 
 		if (sysStack >= currentPCB->max_pc) {
 			sysStack = 0;
@@ -235,31 +258,22 @@ int main() {
 		} else {
 			sysStack++;
 		}
-		
-		if(system_timer_args->flag == 0 && !pthread_mutex_trylock(&mutex_timer)) {
-			system_timer_args->flag = 1;
-			isrTimer();
-			pthread_cond_signal(&cond_timer);	
-			pthread_mutex_unlock(&mutex_timer);
-		} 
-		if(io_timer_a_args->flag == 0 && !pthread_mutex_trylock(&mutex_io_a)) {
-			io_timer_a_args->flag = 1;
-			// isrIO(INTERRUPT_TYPE_IO_A);
-			pthread_cond_signal(&cond_io_a);
-			pthread_mutex_unlock(&mutex_io_a);
-		} 
-		if(io_timer_b_args->flag == 0 && !pthread_mutex_trylock(&mutex_io_b)) {
-			io_timer_b_args->flag = 1;
-			// isrIO(INTERRUPT_TYPE_IO_B);
-			pthread_cond_signal(&cond_io_b);
-			pthread_mutex_unlock(&mutex_io_b);
-		} 
 
 		for (int i = 0; i < PCB_TRAP_LENGTH; i++) {
 			if (sysStack == currentPCB->io_1_traps[i]) {
-				// tsr(INTERRUPT_TYPE_IO_A);
+				tsr(INTERRUPT_TYPE_IO_A);
+				if(!pthread_mutex_trylock(&mutex_io_a)) {
+					io_timer_a_args->flag = 1;
+					pthread_cond_signal(&cond_io_a);
+					pthread_mutex_unlock(&mutex_io_a);
+				} 
 			} else if (sysStack == currentPCB->io_2_traps[i]) {
-				// tsr(INTERRUPT_TYPE_IO_B);
+				tsr(INTERRUPT_TYPE_IO_B);
+				if(!pthread_mutex_trylock(&mutex_io_b)) {
+					io_timer_b_args->flag = 1;
+					pthread_cond_signal(&cond_io_b);
+					pthread_mutex_unlock(&mutex_io_b);
+				} 
 			}
 		}
 	}
