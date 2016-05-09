@@ -89,18 +89,11 @@ PCB_p PCB_Queue_dequeue(PCB_Queue_p theList, enum PCB_ERROR *error) {
 
 // print for check 
 void PCB_Queue_print(PCB_Queue_p theList, enum PCB_ERROR *error) {
-	int temp_size = theList->size;
-	if (theList->size != 0) {
-		printf("Q: Count = %d ", theList->size);
-	}
-	int i;
-	for (i = 1; i <= temp_size; i++ ){
-		printf("P%d->", i);
-	}
-	printf("*");
-	if (theList->last_node_ptr != NULL) {
-		printf(" ");
-		PCB_print(theList->last_node_ptr->value, error);
+	printf("Size = %d. ", theList->size);
+	struct node* n = theList->first_node_ptr;
+	while (n != NULL) {
+		printf("0x%lX->", n->value->pid);
+		n = n->next_node;
 	}
 	printf("\n");
 }

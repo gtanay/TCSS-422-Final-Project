@@ -14,14 +14,14 @@ PCB_p PCB_construct(enum PCB_ERROR *error) {
 	PCB_set_state(p, PCB_STATE_NEW, error);
 	PCB_set_priority(p, PCB_PRIORITY_MAX, error);
 	PCB_set_pc(p, 0, error);
-	PCB_set_max_pc(p, 100000000, error);
+	PCB_set_max_pc(p, 5000000, error);
 	PCB_set_terminate(p, 1, error);
 	PCB_set_term_count(p, 0, error);
 	PCB_set_creation(p, time(NULL), error);
 	PCB_set_termination(p, 0, error);
 	for (int i = 0; i < PCB_TRAP_LENGTH; i++) {
-		p->io_1_traps[i] = rand() % 100000000;
-		p->io_2_traps[i] = rand() % 100000000;
+		p->io_1_traps[i] = rand() % 5000000;
+		p->io_2_traps[i] = rand() % 5000000;
 	}
 	return p;
 }

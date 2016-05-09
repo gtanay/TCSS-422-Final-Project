@@ -9,7 +9,7 @@
 
 // time must be under 1 billion
 #define SLEEP_TIME 90000000
-#define IO_TIME_MIN SLEEP_TIME * 5
+#define IO_TIME_MIN SLEEP_TIME * 3
 #define IO_TIME_MAX SLEEP_TIME * 5
 
 #define IDL_PID 0xFFFFFFFF
@@ -48,7 +48,6 @@ void* timer(void* arguments) {
 		int sleep_length = args->sleep_length_min + rand() % (args->sleep_length_max - args->sleep_length_min + 1);
 		sleep_time.tv_nsec = sleep_length;
 		nanosleep(&sleep_time, NULL);
-		printf("timer %u\n", sleep_length); // debug
 		pthread_cond_wait(args->condition, args->mutex);
 		args->flag = 0;
 	}
@@ -62,6 +61,8 @@ void dispatcher() {
 	}
 	printf("Switching to:\t");
 	PCB_print(currentPCB, &error);
+	printf("Ready Queue:\t");
+	PCB_Queue_print(readyQueue, &error);
 	PCB_set_state(currentPCB, PCB_STATE_RUNNING, &error);
 	sysStack = PCB_get_pc(currentPCB, &error);
 }
@@ -92,12 +93,16 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 		PCB_p p = PCB_Queue_dequeue(waitingQueueA, &error);
 		printf("Moved from IO A:");
 		PCB_print(p, &error);
+		printf("Waiting Queue A:");
+		PCB_Queue_print(waitingQueueA, &error);
 		PCB_set_state(p, PCB_STATE_READY, &error);
 		PCB_Queue_enqueue(readyQueue, p, &error);
 	} else if (interruptType == INTERRUPT_TYPE_IO_B) {
 		PCB_p p = PCB_Queue_dequeue(waitingQueueB, &error);
 		printf("Moved from IO B:");
 		PCB_print(p, &error);
+		printf("Waiting Queue B:");
+		PCB_Queue_print(waitingQueueA, &error);
 		PCB_set_state(p, PCB_STATE_READY, &error);
 		PCB_Queue_enqueue(readyQueue, p, &error);
 	}
@@ -135,11 +140,16 @@ void tsr(enum INTERRUPT_TYPE interruptType) {
 	if (interruptType == INTERRUPT_TYPE_IO_A) {
 		printf("Moved to IO A:\t");
 		PCB_Queue_enqueue(waitingQueueA, currentPCB, &error);
+		PCB_print(currentPCB, &error);
+		printf("Waiting Queue A:");
+		PCB_Queue_print(waitingQueueA, &error);
 	} else if (interruptType == INTERRUPT_TYPE_IO_B) {
 		printf("Moved to IO B:\t");
 		PCB_Queue_enqueue(waitingQueueB, currentPCB, &error);
+		PCB_print(currentPCB, &error);
+		printf("Waiting Queue B:");
+		PCB_Queue_print(waitingQueueB, &error);
 	} 
-	PCB_print(currentPCB, &error);
 	dispatcher();
 }
 
@@ -208,7 +218,7 @@ int main() {
 	readyQueue = PCB_Queue_construct(&error);
 	terminatedQueue = PCB_Queue_construct(&error);
 
-	for (int j = 0; j < 5; j++) {
+	for (int j = 0; j < 16; j++) {
 		PCB_p p = PCB_construct(&error);
 		PCB_set_pid(p, j, &error);
 		PCB_Queue_enqueue(createdQueue, p, &error);
