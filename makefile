@@ -1,4 +1,4 @@
-CFLAGS=-Wall -std=c99
+CFLAGS=-Wall -std=gnu99
 
 
 
@@ -7,7 +7,7 @@ all: Thread_Sim
 
 
 Thread_Sim: Thread_Sim.o PCB.o PCB_Queue.o
-	gcc Thread_Sim.o PCB.o PCB_Queue.o -o Thread_Sim
+	gcc -pthread Thread_Sim.o PCB.o PCB_Queue.o -o Thread_Sim
 
 
 
