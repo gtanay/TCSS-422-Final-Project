@@ -48,6 +48,7 @@ unsigned long sysStack;
 enum PCB_ERROR error = PCB_SUCCESS;
 
 void* timer(void* arguments) {
+	int sleep_length;
 	struct timespec sleep_time;
 	timer_args_p args = (timer_args_p) arguments; 
     printf("timer: before locking mutex\n");
