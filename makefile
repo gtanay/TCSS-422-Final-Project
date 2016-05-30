@@ -1,17 +1,9 @@
-CFLAGS=-Wall -std=c99
-
-
-
+CFLAGS=-Wall
 
 all: Thread_Sim
 
-
 Thread_Sim: Thread_Sim.o PCB.o PCB_Queue.o
-	gcc Thread_Sim.o PCB.o PCB_Queue.o -o Thread_Sim
-
-
-
-
+	gcc -pthread Thread_Sim.o PCB.o PCB_Queue.o -o Thread_Sim
 
 Thread_Sim.o: Thread_Sim.c
 	gcc $(CFLAGS) -c Thread_Sim.c

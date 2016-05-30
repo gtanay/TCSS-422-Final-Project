@@ -7,11 +7,11 @@
 
 enum PCB_STATE_TYPE {
 	PCB_STATE_NEW = 0, 
-	PCB_STATE_READY, 
-	PCB_STATE_RUNNING, 
-	PCB_STATE_INTERRUPTED, 
-	PCB_STATE_WAITING, 
-	PCB_STATE_HALTED,
+	PCB_STATE_READY,        // 1
+	PCB_STATE_RUNNING,      // 2
+	PCB_STATE_INTERRUPTED,  // 3
+	PCB_STATE_WAITING,      // 4
+	PCB_STATE_HALTED,       // 5
 
 	PCB_STATE_LAST_ERROR, // invalid type, used for bounds checking
 
@@ -31,6 +31,10 @@ struct PCB {
 	unsigned int term_count;
 	unsigned long io_1_traps[PCB_TRAP_LENGTH];
 	unsigned long io_2_traps[PCB_TRAP_LENGTH];
+
+	unsigned int priority_boost; 			// starvation prevention flag to boost priority of PCB
+	unsigned int starvation_quanta_count; 	// count of the quanta for starvation prevention of PCB
+
 };
 
 typedef struct PCB * PCB_p;

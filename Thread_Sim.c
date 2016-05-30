@@ -1,11 +1,7 @@
 /*
- * Thread_Sim.c
- * Group: Hunter Bennett, Geoffrey Tanay, Christine Vu, Daniel Bayless
- * Date: May 8, 2016
+ * 
  *
  *
- * Simulates the running of a processor with two I/O devices.
- * Utilizes threads to simulate the interrupt timing.
  */
 
 #include <pthread.h>
@@ -25,9 +21,10 @@
 #define IDL_PID 0xFFFFFFFF
 
 enum INTERRUPT_TYPE {
-	INTERRUPT_TYPE_TIMER = 1, 
+	INTERRUPT_TYPE_TIMER, 
 	INTERRUPT_TYPE_IO_A, 
-	INTERRUPT_TYPE_IO_B
+	INTERRUPT_TYPE_IO_B,
+    INTERRUPT_TYPE_INVALID // for first call to scheduler to move PCBs out of createdQs to readyQ
 };
 
 typedef struct {
@@ -53,13 +50,19 @@ enum PCB_ERROR error = PCB_SUCCESS;
 void* timer(void* arguments) {
 	struct timespec sleep_time;
 	timer_args_p args = (timer_args_p) arguments; 
+    printf("timer: before locking mutex\n");
 	pthread_mutex_lock(args->mutex);
+    printf("timer: after locking mutex\n");
+    sleep_time.tv_sec = 0;
 	for(;;) {
-		int sleep_length = args->sleep_length_min + rand() % (args->sleep_length_max - args->sleep_length_min + 1);
-		sleep_time.tv_nsec = sleep_length;
+		sleep_time.tv_nsec = args->sleep_length_min + rand() % (args->sleep_length_max - args->sleep_length_min + 1);
+		//printf("sleeping %d\n", sleep_length);
+        printf("timer: before sleeping for %d ns\n", (int) sleep_time.tv_nsec);
 		nanosleep(&sleep_time, NULL);
-		pthread_cond_wait(args->condition, args->mutex);
+        printf("timer: after sleep\n");
+		//printf("done sleeping %d\n", sleep_length);
 		args->flag = 0;
+		pthread_cond_wait(args->condition, args->mutex);
 	}
 }
 
@@ -69,7 +72,7 @@ void dispatcher() {
 	} else {
 		currentPCB = idl;
 	}
-	printf("Switching to:\t");
+	printf("\nSwitching to:\t");
 	PCB_print(currentPCB, &error);
 	printf("Ready Queue:\t");
 	PCB_Queue_print(readyQueue, &error);
@@ -119,7 +122,7 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 }
 
 void isrTimer() {
-	printf("\nSwitching from:\t");
+	printf("\nDue to timer, switching from:\t");
 	PCB_print(currentPCB, &error);
 	PCB_set_state(currentPCB, PCB_STATE_INTERRUPTED, &error);
 	PCB_set_pc(currentPCB, sysStack, &error);
@@ -127,11 +130,12 @@ void isrTimer() {
 }
 
 void isrIO(enum INTERRUPT_TYPE interruptType) {
+    // call scheduler so that it moves PCB from appropriate waitQ to readyQ
 	scheduler(interruptType);
 }
 
 void terminate() {
-	printf("Switching from:\t");
+	printf("\nTerminate: switching from:\t");
 	PCB_print(currentPCB, &error);
 	PCB_set_pc(currentPCB, sysStack, &error);
 	PCB_set_state(currentPCB, PCB_STATE_HALTED, &error);
@@ -143,7 +147,7 @@ void terminate() {
 }
 
 void tsr(enum INTERRUPT_TYPE interruptType) {
-	printf("Switching from:\t");
+	printf("\nTrap: switching from:\t");
 	PCB_print(currentPCB, &error);
 	PCB_set_pc(currentPCB, sysStack, &error);
 	PCB_set_state(currentPCB, PCB_STATE_WAITING, &error);
@@ -164,10 +168,15 @@ void tsr(enum INTERRUPT_TYPE interruptType) {
 }
 
 int main() {
-	pthread_t system_timer, io_timer_a, io_timer_b;
+    
+    int i, j = 0;
+    char ioThreadACreated = 0;
+    char ioThreadBCreated = 0;
+    
+	pthread_t       system_timer, io_timer_a, io_timer_b;
 	pthread_mutex_t mutex_timer, mutex_io_a, mutex_io_b;
-	pthread_cond_t cond_timer, cond_io_a, cond_io_b;
-	timer_args_p system_timer_args, io_timer_a_args, io_timer_b_args;
+	pthread_cond_t  cond_timer, cond_io_a, cond_io_b;
+	timer_args_p    system_timer_args, io_timer_a_args, io_timer_b_args;
 	
 	pthread_mutex_init(&mutex_timer, NULL);
 	pthread_mutex_init(&mutex_io_a, NULL);
@@ -178,45 +187,45 @@ int main() {
 	pthread_cond_init(&cond_io_b, NULL);
 	
 	system_timer_args = malloc(sizeof(timer_arguments));
-	io_timer_a_args = malloc(sizeof(timer_arguments));
-	io_timer_b_args = malloc(sizeof(timer_arguments));
+	io_timer_a_args =   malloc(sizeof(timer_arguments));
+	io_timer_b_args =   malloc(sizeof(timer_arguments));
 	
 	system_timer_args->mutex = &mutex_timer;
 	system_timer_args->condition = &cond_timer;
 	system_timer_args->sleep_length_min = SLEEP_TIME;
 	system_timer_args->sleep_length_max = SLEEP_TIME;
+	system_timer_args->flag = 1;
 	
 	io_timer_a_args->mutex = &mutex_io_a;
 	io_timer_a_args->condition = &cond_io_a;
 	io_timer_a_args->sleep_length_min = IO_TIME_MIN;
 	io_timer_a_args->sleep_length_max = IO_TIME_MAX;
+	io_timer_a_args->flag = 1;
 	
 	io_timer_b_args->mutex = &mutex_io_b;
 	io_timer_b_args->condition = &cond_io_b;
 	io_timer_b_args->sleep_length_min = IO_TIME_MIN;
 	io_timer_b_args->sleep_length_max = IO_TIME_MAX;
+	io_timer_b_args->flag = 1;
 	
 	srand(time(NULL));
 	
-	if(pthread_create(&system_timer, NULL, &timer, (void*) system_timer_args)) {
+	if(pthread_create(&system_timer, NULL, timer, (void*) system_timer_args)) {
 		printf("\nERROR creating timer thread");
 		return 1;
 	}
-	if(pthread_create(&io_timer_a, NULL, &timer, (void*) io_timer_a_args)) {
-		printf("\nERROR creating io thread a");
-		return 1;
-	}
-	if(pthread_create(&io_timer_b, NULL, &timer, (void*) io_timer_b_args)) {
-		printf("\nERROR creating io thread b");
-		return 1;
-	}
+    //
+    // moved IO thread creates because IO timers need to start when appropriate trap is handled for the first
+    // time
+    //
 	
 	idl = PCB_construct(&error);
 	PCB_set_pid(idl, IDL_PID, &error);
 	PCB_set_state(idl, PCB_STATE_RUNNING, &error);
 	PCB_set_terminate(idl, 0, &error);
 	PCB_set_max_pc(idl, 0, &error);
-	for (int i = 0; i < PCB_TRAP_LENGTH; i++) {
+	for (i = 0; i < PCB_TRAP_LENGTH; i++) {
+        // is this ok?
 		idl->io_1_traps[i] = 1;
 		idl->io_2_traps[i] = 1;
 	}
@@ -228,40 +237,69 @@ int main() {
 	readyQueue = PCB_Queue_construct(&error);
 	terminatedQueue = PCB_Queue_construct(&error);
 
-	for (int j = 0; j < 16; j++) {
+	for (j = 0; j < 16; j++) {
 		PCB_p p = PCB_construct(&error);
 		PCB_set_pid(p, j, &error);
 		PCB_Queue_enqueue(createdQueue, p, &error);
 		printf("Created:\t");
 		PCB_print(p, &error);
 	}
+    
+    // call scheduler to move all created PCBs to ready queue
+    //scheduler(INTERRUPT_TYPE_INVALID);
+    
+    // this will move everything from createdQ to readyQ and then will switch from idle to first process created
+    isrTimer();
 
-	while(1) {
+	while(!PCB_Queue_is_empty(waitingQueueA, &error) || !PCB_Queue_is_empty(waitingQueueB, &error) || !PCB_Queue_is_empty(readyQueue, &error) || currentPCB != idl) {
 		if (error != PCB_SUCCESS) {
 			printf("\nERROR: error != PCB_SUCCESS");
 			return 1;
 		}
 		
-		if(system_timer_args->flag == 0 && !pthread_mutex_trylock(&mutex_timer)) {
-			system_timer_args->flag = 1;
-			isrTimer();
-			pthread_cond_signal(&cond_timer);	
-			pthread_mutex_unlock(&mutex_timer);
+        //
+        // try to lock timer mutex
+        // if we succeed, it means the timer is done with the lock and we now have the lock
+        // if we don't succeed, it means timer is still nanosleeping, we move on
+        //
+		if(pthread_mutex_trylock(&mutex_timer) == 0) {
+            if (system_timer_args->flag == 0) {
+                //
+                // if flag is 0 it means timer is done nanosleeping
+                //
+                system_timer_args->flag = 1;
+                isrTimer();
+                pthread_cond_signal(&cond_timer);	
+            }
+            //
+            // unlock because if we entered this if statement then we must have acquired the lock
+            // unlock so that timer can restart
+            //
+            pthread_mutex_unlock(&mutex_timer);
 		} 
-		if(io_timer_a_args->flag == 0 && !PCB_Queue_is_empty(waitingQueueA, &error) && !pthread_mutex_trylock(&mutex_io_a)) {
-			isrIO(INTERRUPT_TYPE_IO_A);
-			if (!PCB_Queue_is_empty(waitingQueueA, &error)) {
-				io_timer_a_args->flag = 1;
-				pthread_cond_signal(&cond_io_a);
-			}
+
+		if(pthread_mutex_trylock(&mutex_io_a) == 0) {
+            if (io_timer_a_args->flag == 0 && !PCB_Queue_is_empty(waitingQueueA, &error)) {
+                // call scheduler so that it moves PCB from appropriate waitQ to readyQ
+                isrIO(INTERRUPT_TYPE_IO_A);
+                // if the waitQ is not empty, then restart the io timer
+                if (!PCB_Queue_is_empty(waitingQueueA, &error)) {
+                    io_timer_a_args->flag = 1;
+                    pthread_cond_signal(&cond_io_a);
+                }
+            }
 			pthread_mutex_unlock(&mutex_io_a);
 		} 
-		if(io_timer_b_args->flag == 0 && !PCB_Queue_is_empty(waitingQueueB, &error) && !pthread_mutex_trylock(&mutex_io_b)) {
-			isrIO(INTERRUPT_TYPE_IO_B);
-			if (!PCB_Queue_is_empty(waitingQueueB, &error)) {
-				io_timer_b_args->flag = 1;
-				pthread_cond_signal(&cond_io_b);
-			}
+		if(pthread_mutex_trylock(&mutex_io_b) == 0) { 
+            if (io_timer_b_args->flag == 0 && !PCB_Queue_is_empty(waitingQueueB, &error)) {
+                // call scheduler so that it moves PCB from appropriate waitQ to readyQ
+                isrIO(INTERRUPT_TYPE_IO_B);
+                // if the waitQ is not empty, then restart the io timer
+                if (!PCB_Queue_is_empty(waitingQueueB, &error)) {
+                    io_timer_b_args->flag = 1;
+                    pthread_cond_signal(&cond_io_b);
+                }
+            }
 			pthread_mutex_unlock(&mutex_io_b);
 		} 
 
@@ -276,17 +314,39 @@ int main() {
 			sysStack++;
 		}
 
-		for (int i = 0; i < PCB_TRAP_LENGTH; i++) {
+		for (i = 0; i < PCB_TRAP_LENGTH; i++) {
 			if (sysStack == currentPCB->io_1_traps[i]) {
+                // enQ pcb into waitQ, get pcb from readyQ
 				tsr(INTERRUPT_TYPE_IO_A);
-				if(!pthread_mutex_trylock(&mutex_io_a)) {
+
+                if (ioThreadACreated == 0) {
+                    // this means it's the first IO trap for this IO timer
+                    ioThreadACreated = 1;
+                    if (pthread_create(&io_timer_a, NULL, timer, (void*) io_timer_a_args)) {
+                        printf("\nERROR creating io thread a");
+                        return 1;
+                    } else {
+                        printf("\nIO Timer A thread created\n");
+                    }
+                } else if (pthread_mutex_trylock(&mutex_io_a) == 0) {
+                    // if we're able to lock, means the IO device is stuck waiting on condition
 					io_timer_a_args->flag = 1;
 					pthread_cond_signal(&cond_io_a);
 					pthread_mutex_unlock(&mutex_io_a);
 				} 
 			} else if (sysStack == currentPCB->io_2_traps[i]) {
 				tsr(INTERRUPT_TYPE_IO_B);
-				if(!pthread_mutex_trylock(&mutex_io_b)) {
+				
+                if (ioThreadBCreated == 0) {
+                    // this means it's the first IO trap for this IO timer
+                    ioThreadBCreated = 1;
+                    if(pthread_create(&io_timer_b, NULL, timer, (void*) io_timer_b_args)) {
+                        printf("\nERROR creating io thread b");
+                        return 1;
+                    } else {
+                        printf("\nIO Timer B thread created\n");
+                    }
+                } else if(pthread_mutex_trylock(&mutex_io_b) == 0) {
 					io_timer_b_args->flag = 1;
 					pthread_cond_signal(&cond_io_b);
 					pthread_mutex_unlock(&mutex_io_b);
@@ -294,4 +354,8 @@ int main() {
 			}
 		}
 	}
+    
+    // todo: deallocate memory, destroy stuff like mutexes etc
+    
+    return 0;
 }
