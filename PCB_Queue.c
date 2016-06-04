@@ -1,6 +1,12 @@
+/*
+ * TCSS 422 Final Project
+ * Team 4
+ * Tempest Parr, Paul Zander, Geoffrey Tanay, Justin Clark
+ *
+ */
+
 #include "PCB_Queue.h"
 #include "PCB.h"
-#include "PCB_Errors.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

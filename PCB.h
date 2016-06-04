@@ -1,9 +1,26 @@
+/*
+ * TCSS 422 Final Project
+ * Team 4
+ * Tempest Parr, Paul Zander, Geoffrey Tanay, Justin Clark
+ *
+ */
+
 #pragma once
 
-#include "PCB_Errors.h"
 
 #define PCB_PRIORITY_MAX 15
 #define PCB_TRAP_LENGTH 4
+
+#define MAX_PC MAX_PC
+
+ enum PCB_ERROR {
+	PCB_SUCCESS = 0,
+	PCB_NULL_POINTER,
+	PCB_INVALID_ARG,
+	PCB_MEM_ALLOC_FAIL,
+
+	PCB_LAST_ERROR
+};
 
 enum PCB_STATE_TYPE {
 	PCB_STATE_NEW = 0, 

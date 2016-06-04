@@ -1,6 +1,7 @@
 /*
- * 
- *
+ * TCSS 422 Final Project
+ * Team 4
+ * Tempest Parr, Paul Zander, Geoffrey Tanay, Justin Clark
  *
  */
 
@@ -11,7 +12,6 @@
 
 #include "PCB.h"
 #include "PCB_Queue.h"
-#include "PCB_Errors.h"
 
 // time must be under 1 billion
 #define SLEEP_TIME 90000000

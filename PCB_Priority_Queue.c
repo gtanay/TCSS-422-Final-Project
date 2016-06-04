@@ -1,9 +1,15 @@
+/*
+ * TCSS 422 Final Project
+ * Team 4
+ * Tempest Parr, Paul Zander, Geoffrey Tanay, Justin Clark
+ *
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include "PCB_Priority_Queue.h"
 #include "PCB_Queue.h"
 #include "PCB.h"
-#include "PCB_Errors.h"
 
 PCB_Priority_Queue_p PCB_Priority_Queue_construct(enum PCB_ERROR *error) {
 	PCB_Priority_Queue_p pq = malloc(sizeof(struct PCB_Priority_Queue));

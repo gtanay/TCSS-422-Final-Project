@@ -1,7 +1,13 @@
+/*
+ * TCSS 422 Final Project
+ * Team 4
+ * Tempest Parr, Paul Zander, Geoffrey Tanay, Justin Clark
+ *
+ */
+
 #pragma once
 
 #include "PCB.h"
-#include "PCB_Errors.h"
 
 typedef struct PCB_Queue * PCB_Queue_p; // queue pointer for malloc
 

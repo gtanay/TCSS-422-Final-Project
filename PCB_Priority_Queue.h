@@ -1,8 +1,14 @@
+/*
+ * TCSS 422 Final Project
+ * Team 4
+ * Tempest Parr, Paul Zander, Geoffrey Tanay, Justin Clark
+ *
+ */
+
 #pragma once
 
 #include "PCB_Queue.h"
 #include "PCB.h"
-#include "PCB_Errors.h"
 
 struct PCB_Priority_Queue {
 	PCB_Queue_p queues[PCB_PRIORITY_MAX + 1];
