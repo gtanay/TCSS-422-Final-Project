@@ -7,11 +7,10 @@
 
 #pragma once
 
-
 #define PCB_PRIORITY_MAX 15
 #define PCB_TRAP_LENGTH 4
 
-#define MAX_PC MAX_PC
+#define MAX_PC 5000000
 
  enum PCB_ERROR {
 	PCB_SUCCESS = 0,
@@ -30,37 +29,47 @@ enum PCB_STATE_TYPE {
 	PCB_STATE_WAITING,      // 4
 	PCB_STATE_HALTED,       // 5
 
-	PCB_STATE_LAST_ERROR, // invalid type, used for bounds checking
+	PCB_STATE_LAST_ERROR, 	// invalid type, used for bounds checking
+	PCB_STATE_ERROR 		// Used as return value if null pointer is passed to getter.
+};
 
-	PCB_STATE_ERROR // Used as return value if null pointer is passed to getter.
+enum PCB_PROCESS_TYPE {
+	IO_PROCESS,
+	COMPUTE_INTENSIVE_PROCESS,
+	PRODUCER_PROCESS,
+	CONSUMER_PROCESS,
+	MUTUAL_RESOURCE_PROCESS,
+	UNDEFINED_PROCESS
 };
 
 struct PCB {
-    unsigned long pid;        // process ID #, a unique number
-	unsigned short priority;  // priorities 0=highest, 15=lowest
-	enum PCB_STATE_TYPE state;    // process state (running, waiting, etc.)
-	unsigned long pc;         // holds the current pc value when preempted
+    unsigned long pid;        		// process ID #, a unique number
+	unsigned short priority;  		// priorities 0=highest, 15=lowest
+	enum PCB_STATE_TYPE state;    	// process state (running, waiting, etc.)
+	unsigned long pc;         		// holds the current pc value when preempted
 	unsigned int sw;
 	unsigned long max_pc;
 	unsigned long creation;
 	unsigned long termination;
 	unsigned int terminate;
 	unsigned int term_count;
+
 	unsigned long io_1_traps[PCB_TRAP_LENGTH];
 	unsigned long io_2_traps[PCB_TRAP_LENGTH];
 
 	unsigned int priority_boost; 			// starvation prevention flag to boost priority of PCB
 	unsigned int starvation_quanta_count; 	// count of the quanta for starvation prevention of PCB
+	enum PCB_PROCESS_TYPE type;				// type of process a PCB is
 
 };
 
 typedef struct PCB * PCB_p;
 
-PCB_p PCB_construct(enum PCB_ERROR*); // returns a pcb pointer to heap allocation
+PCB_p PCB_construct(enum PCB_ERROR*); 		// returns a pcb pointer to heap allocation
 void PCB_destruct(PCB_p, enum PCB_ERROR*);  // deallocates pcb from the heap
-void PCB_init(PCB_p, enum PCB_ERROR*);       // sets default values for member data
+void PCB_init(PCB_p, enum PCB_ERROR*);      // sets default values for member data
 
-void PCB_set_pid(PCB_p, unsigned long, enum PCB_ERROR*);///////
+void PCB_set_pid(PCB_p, unsigned long, enum PCB_ERROR*);
 void PCB_set_priority(PCB_p, unsigned short, enum PCB_ERROR*);
 void PCB_set_state(PCB_p, enum PCB_STATE_TYPE, enum PCB_ERROR*);
 void PCB_set_pc(PCB_p, unsigned long, enum PCB_ERROR*);

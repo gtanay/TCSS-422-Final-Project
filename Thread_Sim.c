@@ -13,12 +13,20 @@
 #include "PCB.h"
 #include "PCB_Queue.h"
 
+#define IDL_PID 0xFFFFFFFF
+
 // time must be under 1 billion
 #define SLEEP_TIME 90000000
 #define IO_TIME_MIN SLEEP_TIME * 3
 #define IO_TIME_MAX SLEEP_TIME * 5
 
-#define IDL_PID 0xFFFFFFFF
+#define MAX_IO_PROCESSES 50					// max number of io processes created
+#define PRIORITY_LEVELS 4					// number of priortiy levels (0 - 5%, 1 - 80%, 2 - 10%, 3 - 5%)
+#define MAX_COMPUTE_INTENSIVE_PROCESSES 25	// max number of processes that do no request io or sync services
+#define MAX_PRODUCER_CONSUMER_PAIRS 10		// max number of producer-consumer pairs
+
+// global integer for producer-consumer pairs to read from and write to
+int producer_consumer_var[10];
 
 enum INTERRUPT_TYPE {
 	INTERRUPT_TYPE_TIMER, 
@@ -68,26 +76,39 @@ void* timer(void* arguments) {
 }
 
 void dispatcher() {
+	// if the ready queue is not empty
 	if (!PCB_Queue_is_empty(readyQueue, &error)) {
+		// dequeue from the ready queue
 		currentPCB = PCB_Queue_dequeue(readyQueue, &error);
+	// if the ready queue is empty, switch to the idle pcb
 	} else {
 		currentPCB = idl;
 	}
+
 	printf("\nSwitching to:\t");
 	PCB_print(currentPCB, &error);
 	printf("Ready Queue:\t");
 	PCB_Queue_print(readyQueue, &error);
+
+	// change the state of the pcb that was just dequeued from the
+	// ready queue from ready to running
 	PCB_set_state(currentPCB, PCB_STATE_RUNNING, &error);
+
+	// push the pcb pc value to the sysStack to replace the interrupted process
 	sysStack = PCB_get_pc(currentPCB, &error);
 }
 
 void scheduler(enum INTERRUPT_TYPE interruptType) {
+	// handling processes that have run to completion
 	while (!PCB_Queue_is_empty(terminatedQueue, &error)) {
 		PCB_p p = PCB_Queue_dequeue(terminatedQueue, &error);
 		printf("Deallocated:\t");
 		PCB_print(p, &error);
 		PCB_destruct(p, &error);
 	}
+
+	// handling processes created for the first time
+	// move processes from created queue into the ready queue
 	while (!PCB_Queue_is_empty(createdQueue, &error)) {
 		PCB_p p = PCB_Queue_dequeue(createdQueue, &error);
 		PCB_set_state(p, PCB_STATE_READY, &error);
@@ -95,38 +116,74 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 		PCB_print(p, &error);
 		PCB_Queue_enqueue(readyQueue, p, &error);
 	}
+
+	// if timer interrupt occurs for the current process running
 	if (interruptType == INTERRUPT_TYPE_TIMER) {
+		// change the state of the current pcb from interrupted to ready
 		PCB_set_state(currentPCB, PCB_STATE_READY, &error);
+
+		// if the current pcb is not the idle process
 		if (PCB_get_pid(currentPCB, &error) != IDL_PID) {
 			printf("Returned:\t");
 			PCB_print(currentPCB, &error);
+
+			// put the pcb in the back of the ready queue
 			PCB_Queue_enqueue(readyQueue, currentPCB, &error);
 		}
+
+		// call to dispatcher
 		dispatcher();
+
+	// if io device A interrupts the current process running
 	} else if (interruptType == INTERRUPT_TYPE_IO_A) {
+		// dequeue pcb from wait queue A
 		PCB_p p = PCB_Queue_dequeue(waitingQueueA, &error);
 		printf("Moved from IO A:");
 		PCB_print(p, &error);
+
+		// print wait queue A
 		printf("Waiting Queue A:");
 		PCB_Queue_print(waitingQueueA, &error);
+
+		// set the state of pcb just dequeued to ready
 		PCB_set_state(p, PCB_STATE_READY, &error);
+
+		// enqueue the pcb into the ready queue
 		PCB_Queue_enqueue(readyQueue, p, &error);
+
+	// if io device B interrupts the current process running
 	} else if (interruptType == INTERRUPT_TYPE_IO_B) {
+		// dequeue pcb from wait queue B
 		PCB_p p = PCB_Queue_dequeue(waitingQueueB, &error);
 		printf("Moved from IO B:");
 		PCB_print(p, &error);
+
+		// print wait queue B
 		printf("Waiting Queue B:");
 		PCB_Queue_print(waitingQueueA, &error);
+
+		// set the state of pcb just dequeued to ready
 		PCB_set_state(p, PCB_STATE_READY, &error);
+
+		// enqueue the pcb into the ready queue
 		PCB_Queue_enqueue(readyQueue, p, &error);
 	}
 }
 
+
+// function for timer interrupts
 void isrTimer() {
-	printf("\nDue to timer, switching from:\t");
+	// print the current process
+	printf("\nTIMER INTERRUPT: Switching from:\t");
 	PCB_print(currentPCB, &error);
+
+	// change current process state from running to interrupted
 	PCB_set_state(currentPCB, PCB_STATE_INTERRUPTED, &error);
+
+	// then save the cpu state to the pbc
 	PCB_set_pc(currentPCB, sysStack, &error);
+
+	// call scheduler with a timer interrupt
 	scheduler(INTERRUPT_TYPE_TIMER);
 }
 
@@ -147,24 +204,41 @@ void terminate() {
 	dispatcher();
 }
 
+// function for io interrupts
 void tsr(enum INTERRUPT_TYPE interruptType) {
-	printf("\nTrap: switching from:\t");
+	printf("\nTRAP: switching from:\t");
 	PCB_print(currentPCB, &error);
-	PCB_set_pc(currentPCB, sysStack, &error);
+
+	// change the current process state from running to waiting
 	PCB_set_state(currentPCB, PCB_STATE_WAITING, &error);
+
+	// then save the cpu state to the pcb
+	PCB_set_pc(currentPCB, sysStack, &error);
+
+	// if IO device A interrupts
 	if (interruptType == INTERRUPT_TYPE_IO_A) {
 		printf("Moved to IO A:\t");
+		// move the current pcb into wait queue A
 		PCB_Queue_enqueue(waitingQueueA, currentPCB, &error);
 		PCB_print(currentPCB, &error);
+
+		// print wait queue A
 		printf("Waiting Queue A:");
 		PCB_Queue_print(waitingQueueA, &error);
+
+	// if IO device B interrupts
 	} else if (interruptType == INTERRUPT_TYPE_IO_B) {
 		printf("Moved to IO B:\t");
+		// move the current pcb into wait queue B
 		PCB_Queue_enqueue(waitingQueueB, currentPCB, &error);
 		PCB_print(currentPCB, &error);
+
+		// print wait queue B
 		printf("Waiting Queue B:");
 		PCB_Queue_print(waitingQueueB, &error);
 	} 
+
+	// call to dispatcher
 	dispatcher();
 }
 
@@ -215,9 +289,10 @@ int main() {
 		printf("\nERROR creating timer thread");
 		return 1;
 	}
+
     //
-    // moved IO thread creates because IO timers need to start when appropriate trap is handled for the first
-    // time
+    // moved IO thread creates that were here because IO timers need to start when
+    // appropriate trap is handled for the firsttime
     //
 	
 	idl = PCB_construct(&error);
@@ -238,7 +313,7 @@ int main() {
 	readyQueue = PCB_Queue_construct(&error);
 	terminatedQueue = PCB_Queue_construct(&error);
 
-	for (j = 0; j < 16; j++) {
+	for (j = 0; j < 5; j++) {
 		PCB_p p = PCB_construct(&error);
 		PCB_set_pid(p, j, &error);
 		PCB_Queue_enqueue(createdQueue, p, &error);

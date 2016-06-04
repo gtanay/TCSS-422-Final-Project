@@ -11,26 +11,33 @@
 #include <time.h>
 
 PCB_p PCB_construct(enum PCB_ERROR *error) {
+	int i = 0;
 	PCB_p p = malloc(sizeof(struct PCB));
-    int i = 0;
     
 	if (p == NULL) {
 		*error = PCB_MEM_ALLOC_FAIL;
 		return NULL;
-	} 
-	PCB_set_pid(p, 0, error);
-	PCB_set_state(p, PCB_STATE_NEW, error);
-	PCB_set_priority(p, PCB_PRIORITY_MAX, error);
-	PCB_set_pc(p, 0, error);
-	PCB_set_max_pc(p, MAX_PC, error);
-	PCB_set_terminate(p, 1, error);
-	PCB_set_term_count(p, 0, error);
-	PCB_set_creation(p, time(NULL), error);
-	PCB_set_termination(p, 0, error);
+	}
+
+	p->pid = 0;
+	p->state = PCB_STATE_NEW;
+	p->priority = PCB_PRIORITY_MAX;
+	p->pc = 0;
+	p->max_pc = MAX_PC;
+	p->terminate = 1;
+	p->term_count = 0;
+	p->creation = time(NULL);
+	p->termination = 0;
+
 	for (i = 0; i < PCB_TRAP_LENGTH; i++) {
 		p->io_1_traps[i] = rand() % MAX_PC;
 		p->io_2_traps[i] = rand() % MAX_PC;
 	}
+
+	p->type = UNDEFINED_PROCESS;
+	p->priority_boost = 0;
+	p->starvation_quanta_count = 0;
+
 	return p;
 }
 
