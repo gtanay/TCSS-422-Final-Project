@@ -62,6 +62,14 @@ void PCB_destruct(PCB_p p, enum PCB_ERROR *error) {
 void PCB_init(PCB_p p, enum PCB_ERROR *error) {
 }
 
+void PCB_set_type(PCB_p p, enum PCB_PROCESS_TYPE t, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return;
+	}
+	p->type = t;
+}
+
 void PCB_set_pid(PCB_p p, unsigned long pid, enum PCB_ERROR *error) {
 	if (p == NULL) {
 		*error = PCB_NULL_POINTER;
@@ -238,3 +246,12 @@ void PCB_print(PCB_p p, enum PCB_ERROR *error) {
     // printf("IO_2_traps: 0x%lx, 0x%lx, 0x%lx, 0x%lx\n", p->io_2_traps[0], p->io_2_traps[1], p->io_2_traps[2], p->io_2_traps[3]);
     // todo: print out termination, creation,  io traps
 }
+
+/* PRODUCER CONSUMER FUNCTIONS */
+// void PCB_produce(PCB_p pcb, Mutex_p m) {
+// 	// Mutex_lock(m, pcb);
+// }
+
+// void PCB_consume(/* MUTEX */) {
+
+// }
