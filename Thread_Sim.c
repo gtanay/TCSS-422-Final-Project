@@ -21,7 +21,7 @@
 #define IO_TIME_MAX SLEEP_TIME * 5
 
 #define MAX_IO_PROCESSES 50					// max number of io processes created
-#define PRIORITY_LEVELS 4					// number of priortiy levels (0 - 5%, 1 - 80%, 2 - 10%, 3 - 5%)
+#define MAX_PRIORITY_LEVELS 4				// max number of priortiy levels (0 - 5%, 1 - 80%, 2 - 10%, 3 - 5%)
 #define MAX_COMPUTE_INTENSIVE_PROCESSES 25	// max number of processes that do no request io or sync services
 #define MAX_PRODUCER_CONSUMER_PAIRS 10		// max number of producer-consumer pairs
 
@@ -59,16 +59,16 @@ void* timer(void* arguments) {
 	int sleep_length;
 	struct timespec sleep_time;
 	timer_args_p args = (timer_args_p) arguments; 
-    printf("timer: before locking mutex\n");
+    // printf("timer: before locking mutex\n");
 	pthread_mutex_lock(args->mutex);
-    printf("timer: after locking mutex\n");
+    // printf("timer: after locking mutex\n");
     sleep_time.tv_sec = 0;
 	for(;;) {
 		sleep_time.tv_nsec = args->sleep_length_min + rand() % (args->sleep_length_max - args->sleep_length_min + 1);
 		//printf("sleeping %d\n", sleep_length);
-        printf("timer: before sleeping for %d ns\n", (int) sleep_time.tv_nsec);
+        // printf("timer: before sleeping for %d ns\n", (int) sleep_time.tv_nsec);
 		nanosleep(&sleep_time, NULL);
-        printf("timer: after sleep\n");
+        // printf("timer: after sleep\n");
 		//printf("done sleeping %d\n", sleep_length);
 		args->flag = 0;
 		pthread_cond_wait(args->condition, args->mutex);
@@ -138,7 +138,7 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 	} else if (interruptType == INTERRUPT_TYPE_IO_A) {
 		// dequeue pcb from wait queue A
 		PCB_p p = PCB_Queue_dequeue(waitingQueueA, &error);
-		printf("Moved from IO A:");
+		printf("IO COMPLETION: Moved from IO A:\t");
 		PCB_print(p, &error);
 
 		// print wait queue A
@@ -155,7 +155,7 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 	} else if (interruptType == INTERRUPT_TYPE_IO_B) {
 		// dequeue pcb from wait queue B
 		PCB_p p = PCB_Queue_dequeue(waitingQueueB, &error);
-		printf("Moved from IO B:");
+		printf("IO COMPLETION: Moved from IO B:\t");
 		PCB_print(p, &error);
 
 		// print wait queue B
@@ -192,21 +192,28 @@ void isrIO(enum INTERRUPT_TYPE interruptType) {
 	scheduler(interruptType);
 }
 
+// process has terminated and needs to be put into the termination list
 void terminate() {
-	printf("\nTerminate: switching from:\t");
+	printf("\nTERMINATE: Switching from:\t");
 	PCB_print(currentPCB, &error);
 	PCB_set_pc(currentPCB, sysStack, &error);
 	PCB_set_state(currentPCB, PCB_STATE_HALTED, &error);
+
+	// set the process's termination to the computer clock time
 	PCB_set_termination(currentPCB, time(NULL), &error);
+
 	printf("Terminated:\t");
 	PCB_print(currentPCB, &error);
+	// add the process to the termination list
 	PCB_Queue_enqueue(terminatedQueue, currentPCB, &error);
+
+	// call to dispatcher
 	dispatcher();
 }
 
 // function for io interrupts
 void tsr(enum INTERRUPT_TYPE interruptType) {
-	printf("\nTRAP: switching from:\t");
+	printf("\nIO TRAP HANDLER: Switching from:\t");
 	PCB_print(currentPCB, &error);
 
 	// change the current process state from running to waiting
@@ -241,6 +248,22 @@ void tsr(enum INTERRUPT_TYPE interruptType) {
 	// call to dispatcher
 	dispatcher();
 }
+
+
+// PCB_Queue createProcesses(createdQueue) {
+
+// 	// randomly select a priority from 0 - 4
+// 	int priority = rand() % MAX_PRIORITY_LEVELS;
+
+// 	// check if that priority level is full, if full, pick a new priority level
+// 	if () {
+		
+// 	}
+// 	// if not full, 
+// 	// check if priority is 0 -> make it compute intensive
+// 		// if not 0 -> randomly pick process type 
+// }
+
 
 int main() {
     
@@ -290,22 +313,19 @@ int main() {
 		return 1;
 	}
 
-    //
-    // moved IO thread creates that were here because IO timers need to start when
-    // appropriate trap is handled for the firsttime
-    //
-	
+/* =================================================== */
+	// create the idle process
 	idl = PCB_construct(&error);
 	PCB_set_pid(idl, IDL_PID, &error);
 	PCB_set_state(idl, PCB_STATE_RUNNING, &error);
 	PCB_set_terminate(idl, 0, &error);
 	PCB_set_max_pc(idl, 0, &error);
 	for (i = 0; i < PCB_TRAP_LENGTH; i++) {
-        // is this ok?
 		idl->io_1_traps[i] = 1;
 		idl->io_2_traps[i] = 1;
 	}
 	currentPCB = idl;
+/* =================================================== */
 
 	createdQueue = PCB_Queue_construct(&error);
 	waitingQueueA = PCB_Queue_construct(&error);
@@ -313,6 +333,8 @@ int main() {
 	readyQueue = PCB_Queue_construct(&error);
 	terminatedQueue = PCB_Queue_construct(&error);
 
+	// create processes
+	// createProcesses(createdQueue);
 	for (j = 0; j < 5; j++) {
 		PCB_p p = PCB_construct(&error);
 		PCB_set_pid(p, j, &error);
@@ -321,55 +343,81 @@ int main() {
 		PCB_print(p, &error);
 	}
     
-    // call scheduler to move all created PCBs to ready queue
-    //scheduler(INTERRUPT_TYPE_INVALID);
-    
-    // this will move everything from createdQ to readyQ and then will switch from idle to first process created
+    // this will move everything from createdQ to readyQ
+    // then will switch from idle process to first process created
     isrTimer();
 
+
+    // while the wait queues aren't empty, or the ready queue isn't empty, or the current pcb running isn't the idle process
+    // basically, while there is a process that isn't done yet
 	while(!PCB_Queue_is_empty(waitingQueueA, &error) || !PCB_Queue_is_empty(waitingQueueB, &error) || !PCB_Queue_is_empty(readyQueue, &error) || currentPCB != idl) {
+		
 		if (error != PCB_SUCCESS) {
 			printf("\nERROR: error != PCB_SUCCESS");
 			return 1;
 		}
 		
-        //
-        // try to lock timer mutex
-        // if we succeed, it means the timer is done with the lock and we now have the lock
-        // if we don't succeed, it means timer is still nanosleeping, we move on
-        //
+        /*
+         *
+         *	CHECK FOR TIMER INTERRUPT
+         *
+		 * try to lock timer mutex
+         * if we succeed, it means the timer is done with the lock and we now have the lock
+         * if we don't succeed, it means timer is still nanosleeping, we move on
+         */
 		if(pthread_mutex_trylock(&mutex_timer) == 0) {
+
+			// if flag is 0, timer is done nanosleeping
             if (system_timer_args->flag == 0) {
-                //
-                // if flag is 0 it means timer is done nanosleeping
-                //
+            	// set the flag to 1 to signal that the timer is nanosleeping now
                 system_timer_args->flag = 1;
+
+                // call isrTimer to switch to the next process
                 isrTimer();
                 pthread_cond_signal(&cond_timer);	
             }
-            //
-            // unlock because if we entered this if statement then we must have acquired the lock
+
+            // unlock because if we entered the if statement then we must have acquired the lock
             // unlock so that timer can restart
-            //
             pthread_mutex_unlock(&mutex_timer);
 		} 
 
+		/*
+		 *
+		 *	CHECK FOR IO COMPLETION INTERRUPT FROM DEVICE A
+		 *
+		 */
 		if(pthread_mutex_trylock(&mutex_io_a) == 0) {
+
+			// check if timer a is done nanosleeping and if there's a process to be moved out of waitQ A
             if (io_timer_a_args->flag == 0 && !PCB_Queue_is_empty(waitingQueueA, &error)) {
+
                 // call scheduler so that it moves PCB from appropriate waitQ to readyQ
                 isrIO(INTERRUPT_TYPE_IO_A);
+
                 // if the waitQ is not empty, then restart the io timer
                 if (!PCB_Queue_is_empty(waitingQueueA, &error)) {
                     io_timer_a_args->flag = 1;
                     pthread_cond_signal(&cond_io_a);
                 }
             }
+
 			pthread_mutex_unlock(&mutex_io_a);
 		} 
+
+		/*
+		 *
+		 *	CHECK FOR IO COMPLETION INTERRUPT FROM DEVICE B
+		 *
+		 */
 		if(pthread_mutex_trylock(&mutex_io_b) == 0) { 
+
+			// check if timer a is done nanosleeping and if there's a process to be moved out of waitQ B
             if (io_timer_b_args->flag == 0 && !PCB_Queue_is_empty(waitingQueueB, &error)) {
+
                 // call scheduler so that it moves PCB from appropriate waitQ to readyQ
                 isrIO(INTERRUPT_TYPE_IO_B);
+
                 // if the waitQ is not empty, then restart the io timer
                 if (!PCB_Queue_is_empty(waitingQueueB, &error)) {
                     io_timer_b_args->flag = 1;
@@ -377,13 +425,21 @@ int main() {
                 }
             }
 			pthread_mutex_unlock(&mutex_io_b);
-		} 
+		}
 
+		/*
+		 *
+		 *	CHECK IF WE'VE REACHED THE MAX PC
+		 *
+		 */
 		if (sysStack >= currentPCB->max_pc) {
 			sysStack = 0;
 			currentPCB->term_count++;
+
+			// if the process is one that is supposed to terminate (!= 0)
+			// and if the process's terminate is 
 			if (currentPCB->terminate != 0 && 
-					currentPCB->terminate <= currentPCB->term_count) {
+					currentPCB->terminate == currentPCB->term_count) {
 				terminate();
 			}
 		} else {

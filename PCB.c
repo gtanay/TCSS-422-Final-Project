@@ -23,16 +23,30 @@ PCB_p PCB_construct(enum PCB_ERROR *error) {
 	p->state = PCB_STATE_NEW;
 	p->priority = PCB_PRIORITY_MAX;
 	p->pc = 0;
-	p->max_pc = MAX_PC;
-	p->terminate = 1;
-	p->term_count = 0;
+	p->max_pc = rand() % 6000 + 2000;
+
+	// p->terminate = 1;
+#if (ALLOW_ENDLESS_PROCESSES == 1)
+    p->terminate = rand() % 3;
+#else 
+    p->terminate = 1 + (rand() % 3);
+#endif
+
 	p->creation = time(NULL);
 	p->termination = 0;
 
-	for (i = 0; i < PCB_TRAP_LENGTH; i++) {
-		p->io_1_traps[i] = rand() % MAX_PC;
-		p->io_2_traps[i] = rand() % MAX_PC;
-	}
+	// for (i = 0; i < PCB_TRAP_LENGTH; i++) {
+	// 	p->io_1_traps[i] = rand() % p->max_pc;
+	// 	p->io_2_traps[i] = rand() % p->max_pc;
+	// }
+
+	for(i = 0; i < 8; i++ ){
+        if (i % 2 == 0) {
+            p->io_1_traps[i / 2] = (p->max_pc / 8) * i + rand() % (p->max_pc / 8);
+        } else {
+            p->io_2_traps[(i - 1) / 2] = (p->max_pc / 8) * i + rand() % (p->max_pc / 8);
+        }
+    }
 
 	p->type = UNDEFINED_PROCESS;
 	p->priority_boost = 0;

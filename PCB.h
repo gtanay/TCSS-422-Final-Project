@@ -9,8 +9,9 @@
 
 #define PCB_PRIORITY_MAX 15
 #define PCB_TRAP_LENGTH 4
-
 #define MAX_PC 5000000
+#define ALLOW_ENDLESS_PROCESSES 0
+
 
  enum PCB_ERROR {
 	PCB_SUCCESS = 0,
@@ -34,8 +35,8 @@ enum PCB_STATE_TYPE {
 };
 
 enum PCB_PROCESS_TYPE {
-	IO_PROCESS,
 	COMPUTE_INTENSIVE_PROCESS,
+	IO_PROCESS,
 	PRODUCER_PROCESS,
 	CONSUMER_PROCESS,
 	MUTUAL_RESOURCE_PROCESS,
@@ -48,11 +49,11 @@ struct PCB {
 	enum PCB_STATE_TYPE state;    	// process state (running, waiting, etc.)
 	unsigned long pc;         		// holds the current pc value when preempted
 	unsigned int sw;
-	unsigned long max_pc;
-	unsigned long creation;
-	unsigned long termination;
-	unsigned int terminate;
-	unsigned int term_count;
+	unsigned long max_pc;			// number of instructions that should be processed before resetting PC to 0
+	unsigned long creation;			// computer clock time when the process was created
+	unsigned long termination;		// computer clock time when the process terminates
+	unsigned int terminate;			// number of times the PC will pass its MAX_PC value, 0 for no terminate
+	unsigned int term_count;		// counter to track of how many times the process has passed its MAX_PC value
 
 	unsigned long io_1_traps[PCB_TRAP_LENGTH];
 	unsigned long io_2_traps[PCB_TRAP_LENGTH];
