@@ -12,6 +12,7 @@
 
 #include "PCB.h"
 #include "PCB_Queue.h"
+#include "PCB_Priority_Queue.h"
 
 #define IDL_PID 0xFFFFFFFF
 
