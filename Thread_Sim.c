@@ -28,6 +28,12 @@
 // global integer for producer-consumer pairs to read from and write to
 int producer_consumer_var[10];
 
+//Counts of processes. 
+unsigned int TOTAL_PROCESS_COUNT = 0;
+unsigned int IO_PROCESS_RUNNING_COUNT = 0;
+unsigned int INTENSIVE_PROCESS_RUNNING_COUNT = 0;
+unsigned int PRODUCER_CONSUMER_PAIR_RUNNING_COUNT = 0;
+
 enum INTERRUPT_TYPE {
 	INTERRUPT_TYPE_TIMER, 
 	INTERRUPT_TYPE_IO_A, 
@@ -46,7 +52,7 @@ typedef struct {
 typedef timer_arguments* timer_args_p;
 
 PCB_Queue_p createdQueue;
-PCB_Queue_p readyQueue;
+PCB_Priority_Queue_p readyQueue;
 PCB_Queue_p terminatedQueue;
 PCB_Queue_p waitingQueueA;
 PCB_Queue_p waitingQueueB;
@@ -77,9 +83,9 @@ void* timer(void* arguments) {
 
 void dispatcher() {
 	// if the ready queue is not empty
-	if (!PCB_Queue_is_empty(readyQueue, &error)) {
+	if (get_PQ_size(readyQueue, &error) > 0) {
 		// dequeue from the ready queue
-		currentPCB = PCB_Queue_dequeue(readyQueue, &error);
+		currentPCB = PCB_Priority_Queue_dequeue(readyQueue, &error);
 	// if the ready queue is empty, switch to the idle pcb
 	} else {
 		currentPCB = idl;
@@ -88,7 +94,7 @@ void dispatcher() {
 	printf("\nSwitching to:\t");
 	PCB_print(currentPCB, &error);
 	printf("Ready Queue:\t");
-	PCB_Queue_print(readyQueue, &error);
+	PCB_Priority_Queue_print(readyQueue, &error);
 
 	// change the state of the pcb that was just dequeued from the
 	// ready queue from ready to running
@@ -114,7 +120,7 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 		PCB_set_state(p, PCB_STATE_READY, &error);
 		printf("Scheduled:\t");
 		PCB_print(p, &error);
-		PCB_Queue_enqueue(readyQueue, p, &error);
+		PCB_Priority_Queue_enqueue(readyQueue, p, &error);
 	}
 
 	// if timer interrupt occurs for the current process running
@@ -128,7 +134,7 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 			PCB_print(currentPCB, &error);
 
 			// put the pcb in the back of the ready queue
-			PCB_Queue_enqueue(readyQueue, currentPCB, &error);
+			PCB_Priority_Queue_enqueue(readyQueue, currentPCB, &error);
 		}
 
 		// call to dispatcher
@@ -149,7 +155,7 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 		PCB_set_state(p, PCB_STATE_READY, &error);
 
 		// enqueue the pcb into the ready queue
-		PCB_Queue_enqueue(readyQueue, p, &error);
+		PCB_Priority_Queue_enqueue(readyQueue, p, &error);
 
 	// if io device B interrupts the current process running
 	} else if (interruptType == INTERRUPT_TYPE_IO_B) {
@@ -166,7 +172,7 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 		PCB_set_state(p, PCB_STATE_READY, &error);
 
 		// enqueue the pcb into the ready queue
-		PCB_Queue_enqueue(readyQueue, p, &error);
+		PCB_Priority_Queue_enqueue(readyQueue, p, &error);
 	}
 }
 
@@ -330,7 +336,7 @@ int main() {
 	createdQueue = PCB_Queue_construct(&error);
 	waitingQueueA = PCB_Queue_construct(&error);
 	waitingQueueB = PCB_Queue_construct(&error);
-	readyQueue = PCB_Queue_construct(&error);
+	readyQueue = PCB_Priority_Queue_construct(&error);
 	terminatedQueue = PCB_Queue_construct(&error);
 
 	// create processes
@@ -350,7 +356,7 @@ int main() {
 
     // while the wait queues aren't empty, or the ready queue isn't empty, or the current pcb running isn't the idle process
     // basically, while there is a process that isn't done yet
-	while(!PCB_Queue_is_empty(waitingQueueA, &error) || !PCB_Queue_is_empty(waitingQueueB, &error) || !PCB_Queue_is_empty(readyQueue, &error) || currentPCB != idl) {
+	while(!PCB_Queue_is_empty(waitingQueueA, &error) || !PCB_Queue_is_empty(waitingQueueB, &error) || get_PQ_size(readyQueue, &error) > 0 || currentPCB != idl) {
 		
 		if (error != PCB_SUCCESS) {
 			printf("\nERROR: error != PCB_SUCCESS");

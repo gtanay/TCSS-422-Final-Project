@@ -232,19 +232,71 @@ unsigned int PCB_get_term_count(PCB_p p, enum PCB_ERROR *error) {
 	return p->term_count;
 }
 
+unsigned short PCB_get_type(PCB_p p, enum PCB_ERROR *error) {
+	if (p == NULL) {
+		*error = PCB_NULL_POINTER;
+		return UNDEFINED_PROCESS;
+	}
+	return p->type;
+}
+
 void PCB_print(PCB_p p, enum PCB_ERROR *error) {
 	if (p == NULL) {
 		*error = PCB_NULL_POINTER;
 		return;
 	}
-	printf("PID: 0x%lX, Priority: 0x%X, State: %u, PC: 0x%lX, MaxPC: 0x%lx, Terminate: %u, TermCount: %u\n", 
-			PCB_get_pid(p, error), PCB_get_priority(p, error),
-			PCB_get_state(p, error), PCB_get_pc(p, error),
+	printf("PID: 0x%lX, Type: %s, Priority: 0x%X, State: %s, PC: 0x%lX, MaxPC: 0x%lx, Terminate: %u, TermCount: %u\n", 
+			PCB_get_pid(p, error), PCB_type_toString(PCB_get_type(p, error)), PCB_get_priority(p, error),
+			PCB_state_toString(PCB_get_state(p, error)), PCB_get_pc(p, error),
 			PCB_get_max_pc(p, error), PCB_get_terminate(p, error),
 			PCB_get_term_count(p, error));
     // printf("IO_1_traps: 0x%lx, 0x%lx, 0x%lx, 0x%lx\n", p->io_1_traps[0], p->io_1_traps[1], p->io_1_traps[2], p->io_1_traps[3]);
     // printf("IO_2_traps: 0x%lx, 0x%lx, 0x%lx, 0x%lx\n", p->io_2_traps[0], p->io_2_traps[1], p->io_2_traps[2], p->io_2_traps[3]);
     // todo: print out termination, creation,  io traps
+}
+
+/**
+ * Returns the easy-to-read name of the process type. 
+ */
+const char *PCB_type_toString(enum PCB_PROCESS_TYPE t) {
+	switch (t) {
+		case COMPUTE_INTENSIVE_PROCESS:
+			return "INTENSIVE";
+		case IO_PROCESS:
+			return "I/O";
+		case PRODUCER_PROCESS:
+			return "PRODUCER";
+		case CONSUMER_PROCESS:
+			return "CONSUMER";
+		case MUTUAL_RESOURCE_PROCESS:
+			return "MUTUAL RESOURCE";
+		default:
+			return "UNDEFINED";
+	}
+}
+
+/**
+ * Returns the easy-to-read name of the process state.
+ */
+const char *PCB_state_toString(enum PCB_STATE_TYPE t) {
+	switch (t) {
+		case PCB_STATE_NEW:
+			return "NEW";
+		case PCB_STATE_READY:
+			return "READY";
+		case PCB_STATE_RUNNING:
+			return "RUNNING";
+		case PCB_STATE_INTERRUPTED:
+			return "INTERRUPTED";
+		case PCB_STATE_WAITING:
+			return "WAITING";
+		case PCB_STATE_HALTED:
+			return "HALTED";
+		case PCB_STATE_LAST_ERROR:
+			return "LAST_ERROR";
+		default:
+			return "ERROR";
+	}
 }
 
 /* PRODUCER CONSUMER FUNCTIONS */

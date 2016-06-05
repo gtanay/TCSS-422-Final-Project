@@ -17,6 +17,7 @@ PCB_Priority_Queue_p PCB_Priority_Queue_construct(enum PCB_ERROR *error) {
 		*error = PCB_MEM_ALLOC_FAIL;
 		return NULL;
 	}
+	pq->size = 0;
 	int i;
 	for (i = 0; i <= PCB_PRIORITY_MAX; i++) {
 		pq->queues[i] = PCB_Queue_construct(error);
@@ -33,6 +34,7 @@ void PCB_Priority_Queue_enqueue(PCB_Priority_Queue_p pq, PCB_p pcb, enum PCB_ERR
 		*error = PCB_NULL_POINTER;
 		return;
 	}
+	pq->size++;
 	PCB_Queue_p queue = pq->queues[PCB_get_priority(pcb, error)];
 	PCB_Queue_enqueue(queue, pcb, error);
 }
@@ -42,6 +44,7 @@ PCB_p PCB_Priority_Queue_dequeue(PCB_Priority_Queue_p pq, enum PCB_ERROR *error)
 		*error = PCB_NULL_POINTER;
 		return NULL;
 	}
+	pq->size--;
 	int i = 0;
 	while (PCB_Queue_is_empty(pq->queues[i], error)) {
 		if (i > PCB_PRIORITY_MAX) {
@@ -65,4 +68,11 @@ void PCB_Priority_Queue_print(PCB_Priority_Queue_p pq, enum PCB_ERROR *error) {
 		}
 		printf("-*\n");
 	}
+}
+
+/**
+ * Returns current size of the Priority Queue.
+ */
+unsigned int get_PQ_size(PCB_Priority_Queue_p pq, enum PCB_ERROR*error) {
+	return pq->size;
 }

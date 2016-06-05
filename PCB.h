@@ -7,7 +7,7 @@
 
 #pragma once
 
-#define PCB_PRIORITY_MAX 15
+#define PCB_PRIORITY_MAX 3
 #define PCB_TRAP_LENGTH 4
 #define MAX_PC 5000000
 #define ALLOW_ENDLESS_PROCESSES 0
@@ -64,11 +64,12 @@ struct PCB {
 
 	unsigned int pair_name;					// name for pairs, if PCB type is producer/consumer
 
-	unsigned long lock[];					// These are the arrays that determine when the process
-	unsigned long trylock[];				// Will perform the corresponding behavior.
-	unsigned long unlock[];
-	unsigned long signal_condition[];
-	unsigned long wait_condition[];
+
+	unsigned long lock[PCB_TRAP_LENGTH];				// These are the arrays that determine when the process
+	unsigned long trylock[PCB_TRAP_LENGTH];				// Will perform the corresponding behavior.
+	unsigned long unlock[PCB_TRAP_LENGTH];
+	unsigned long signal_condition[PCB_TRAP_LENGTH];
+	unsigned long wait_condition[PCB_TRAP_LENGTH];
 
 };
 
@@ -101,4 +102,5 @@ unsigned int PCB_get_terminate(PCB_p, enum PCB_ERROR*);
 unsigned int PCB_get_term_count(PCB_p, enum PCB_ERROR*);
 
 void PCB_print(PCB_p, enum PCB_ERROR*);  // a string representing the contents of the pcb
-
+const char *PCB_type_toString(enum PCB_PROCESS_TYPE);
+const char *PCB_state_toString(enum PCB_STATE_TYPE);
