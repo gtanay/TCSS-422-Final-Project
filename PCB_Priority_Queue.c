@@ -70,9 +70,26 @@ void PCB_Priority_Queue_print(PCB_Priority_Queue_p pq, enum PCB_ERROR *error) {
 	}
 }
 
+
 /**
  * Returns current size of the Priority Queue.
  */
 unsigned int get_PQ_size(PCB_Priority_Queue_p pq, enum PCB_ERROR*error) {
 	return pq->size;
 }
+
+/*
+ * Increases the priority of a starved process
+ */
+void PCB_Priority_Queue_promote(PCB_Priority_Queue_p pq, int priority, enum PCB_ERROR *error) {
+	PCB_p pcb = PCB_Queue_dequeue(pq->queues[priority], error);
+	//mark as having the priority boosted
+	if (!pcb->priority_boost) {
+		pcb->priority_boost = 1;
+	}
+	//increase priority and re-enqueue
+	pcb->priority--; 
+	pcb->starvation_quanta_count++;
+	PCB_Priority_Queue_enqueue(pq, pcb, error);	
+}
+

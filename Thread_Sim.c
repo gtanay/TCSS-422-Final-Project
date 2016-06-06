@@ -17,7 +17,7 @@
 #define IDL_PID 0xFFFFFFFF
 
 // time must be under 1 billion
-#define SLEEP_TIME 90000000
+#define SLEEP_TIME 1000000
 #define IO_TIME_MIN SLEEP_TIME * 3
 #define IO_TIME_MAX SLEEP_TIME * 5
 
@@ -25,6 +25,17 @@
 #define MAX_PRIORITY_LEVELS 4				// max number of priortiy levels (0 - 5%, 1 - 80%, 2 - 10%, 3 - 5%)
 #define MAX_COMPUTE_INTENSIVE_PROCESSES 25	// max number of processes that do no request io or sync services
 #define MAX_PRODUCER_CONSUMER_PAIRS 10		// max number of producer-consumer pairs
+
+#define PRIORITY_PERCENT_TOTAL 100			// total 
+#define PRIORITY_0_PERCENT 5				// percent of processes that are priority 0
+#define PRIORITY_1_PERCENT 80				// percent of processes that are priority 1
+#define PRIORITY_2_PERCENT 10				// percent of processes that are priority 2
+#define PRIORITY_3_PERCENT 5				// percent of processes that are priority 3
+
+#define STARVATION_LIMIT 10 				//number of context switches for a priority level to be considered starved.
+
+#define MAX_NUM_LOOPS 100000				//the number of process loops in a program run.
+
 
 // global integer for producer-consumer pairs to read from and write to
 int producer_consumer_var[10];
@@ -34,6 +45,18 @@ unsigned int TOTAL_PROCESS_COUNT = 0;
 unsigned int IO_PROCESS_RUNNING_COUNT = 0;
 unsigned int INTENSIVE_PROCESS_RUNNING_COUNT = 0;
 unsigned int PRODUCER_CONSUMER_PAIR_RUNNING_COUNT = 0;
+
+// global integer to track the number of I/O processes
+int num_io_processes;
+
+// global integer to track the number of compute intensive processes
+int num_comp_intensive_processes;
+
+// global integer to track number of processes of each priority
+int num_processes[MAX_PRIORITY_LEVELS];
+
+// global integer to track starvation of processes
+int queue_wait_time[MAX_PRIORITY_LEVELS];
 
 enum INTERRUPT_TYPE {
 	INTERRUPT_TYPE_TIMER, 
@@ -63,7 +86,7 @@ unsigned long sysStack;
 enum PCB_ERROR error = PCB_SUCCESS;
 
 void* timer(void* arguments) {
-	int sleep_length;
+	//int sleep_length;
 	struct timespec sleep_time;
 	timer_args_p args = (timer_args_p) arguments; 
     // printf("timer: before locking mutex\n");
@@ -83,10 +106,32 @@ void* timer(void* arguments) {
 }
 
 void dispatcher() {
+	int i = 0;
 	// if the ready queue is not empty
 	if (get_PQ_size(readyQueue, &error) > 0) {
 		// dequeue from the ready queue
 		currentPCB = PCB_Priority_Queue_dequeue(readyQueue, &error);
+		// starvation handling
+		
+		// check for starvation
+		for (i = 1; i < MAX_PRIORITY_LEVELS; i++) {
+			if (currentPCB->priority != i && !PCB_Queue_is_empty(readyQueue->queues[i], &error)) {
+				queue_wait_time[i]++;
+				if (queue_wait_time[i] > STARVATION_LIMIT) {
+					printf("Starvation at priority %d, promoting front of priority %d queue to next priority\n", i, i);
+					PCB_Priority_Queue_promote(readyQueue, i, &error);
+					queue_wait_time[i] = 0;
+				}
+			}
+		}
+		
+		//reset priority of dequeued process
+		if (currentPCB->priority_boost) {
+			currentPCB->priority_boost = 0;
+			currentPCB->priority += currentPCB->starvation_quanta_count;
+			currentPCB->starvation_quanta_count = 0;
+		}
+		
 	// if the ready queue is empty, switch to the idle pcb
 	} else {
 		currentPCB = idl;
@@ -94,7 +139,7 @@ void dispatcher() {
 
 	printf("\nSwitching to:\t");
 	PCB_print(currentPCB, &error);
-	printf("Ready Queue:\t");
+	printf("Ready Queue:\n");
 	PCB_Priority_Queue_print(readyQueue, &error);
 
 	// change the state of the pcb that was just dequeued from the
@@ -109,6 +154,12 @@ void scheduler(enum INTERRUPT_TYPE interruptType) {
 	// handling processes that have run to completion
 	while (!PCB_Queue_is_empty(terminatedQueue, &error)) {
 		PCB_p p = PCB_Queue_dequeue(terminatedQueue, &error);
+		if (p->type == COMPUTE_INTENSIVE_PROCESS) {
+			INTENSIVE_PROCESS_RUNNING_COUNT--;
+		} else if (p->type == IO_PROCESS) {
+			IO_PROCESS_RUNNING_COUNT--;
+		}
+		num_processes[p->priority]--;
 		printf("Deallocated:\t");
 		PCB_print(p, &error);
 		PCB_destruct(p, &error);
@@ -257,19 +308,73 @@ void tsr(enum INTERRUPT_TYPE interruptType) {
 }
 
 
-// PCB_Queue createProcesses(createdQueue) {
+// Create a new process
+void createProcess(PCB_Queue_p createdQueue, int pid) {
+	int i = 0;
+	PCB_p new_pcb;
+	unsigned short valid_process = 0;
+	
+	if (INTENSIVE_PROCESS_RUNNING_COUNT == MAX_COMPUTE_INTENSIVE_PROCESSES 
+				&& IO_PROCESS_RUNNING_COUNT == MAX_IO_PROCESSES) {
+		//There is the maximum amount of both process types, don't create a new process.
+		return;
+	}	
+	new_pcb = PCB_construct(&error);
+	PCB_set_pid(new_pcb, pid, &error);
+	
+	while (!valid_process) {
+		// determine priority level of new process
+		int priority = rand() % PRIORITY_PERCENT_TOTAL;
+		if (priority < PRIORITY_0_PERCENT) {
+			PCB_set_priority(new_pcb, 0, &error);
+		} else if (priority < PRIORITY_1_PERCENT + PRIORITY_0_PERCENT) {
+			PCB_set_priority(new_pcb, 1, &error);
+		} else if (priority < PRIORITY_2_PERCENT + PRIORITY_1_PERCENT + PRIORITY_0_PERCENT) {
+			PCB_set_priority(new_pcb, 2, &error);
+		} else {
+			PCB_set_priority(new_pcb, 3, &error);
+		}
 
-// 	// randomly select a priority from 0 - 4
-// 	int priority = rand() % MAX_PRIORITY_LEVELS;
-
-// 	// check if that priority level is full, if full, pick a new priority level
-// 	if () {
 		
-// 	}
-// 	// if not full, 
-// 	// check if priority is 0 -> make it compute intensive
-// 		// if not 0 -> randomly pick process type 
-// }
+		if (new_pcb->pid == 0){
+			//if the new pcb is priority 0, set as compute intensive
+			 if (INTENSIVE_PROCESS_RUNNING_COUNT < MAX_COMPUTE_INTENSIVE_PROCESSES) {
+				new_pcb->type = COMPUTE_INTENSIVE_PROCESS;
+				INTENSIVE_PROCESS_RUNNING_COUNT++;
+				valid_process = 1;
+			}
+		} else {
+			// otherwise randomly set type
+			// need to add other types
+			int process_type = rand() % 2;
+			if (process_type){
+				if (IO_PROCESS_RUNNING_COUNT < MAX_IO_PROCESSES) {
+					new_pcb->type = IO_PROCESS;
+					IO_PROCESS_RUNNING_COUNT++;
+					valid_process = 1;
+				}
+			} else {
+				if (INTENSIVE_PROCESS_RUNNING_COUNT < MAX_COMPUTE_INTENSIVE_PROCESSES) {
+					new_pcb->type = COMPUTE_INTENSIVE_PROCESS;
+					INTENSIVE_PROCESS_RUNNING_COUNT++;
+					valid_process = 1;
+				}
+			} 
+		}
+	}
+	
+	if (new_pcb->type == COMPUTE_INTENSIVE_PROCESS) {
+		// if the new process is compute intensive remove all io traps.
+		for (i = 0; i < PCB_TRAP_LENGTH; i++) {
+			new_pcb->io_1_traps[i] = MAX_PC + 1;
+			new_pcb->io_2_traps[i] = MAX_PC + 1;
+		} 
+	}
+	
+	PCB_Queue_enqueue(createdQueue, new_pcb, &error);
+	printf("Created:\t");
+	PCB_print(new_pcb, &error);
+}
 
 
 int main() {
@@ -277,6 +382,8 @@ int main() {
     int i, j = 0;
     char ioThreadACreated = 0;
     char ioThreadBCreated = 0;
+    int pid = 0;
+    int num_loops = 0;
     
 	pthread_t       system_timer, io_timer_a, io_timer_b;
 	pthread_mutex_t mutex_timer, mutex_io_a, mutex_io_b;
@@ -339,15 +446,17 @@ int main() {
 	waitingQueueB = PCB_Queue_construct(&error);
 	readyQueue = PCB_Priority_Queue_construct(&error);
 	terminatedQueue = PCB_Queue_construct(&error);
+	
+	num_comp_intensive_processes = 0;
+	num_io_processes = 0;
+	for (i = 0; i < MAX_PRIORITY_LEVELS; i++) {
+		num_processes[i] = 0;
+		queue_wait_time[i] = 0;
+	}
 
-	// create processes
-	// createProcesses(createdQueue);
+	// create initial processes
 	for (j = 0; j < 5; j++) {
-		PCB_p p = PCB_construct(&error);
-		PCB_set_pid(p, j, &error);
-		PCB_Queue_enqueue(createdQueue, p, &error);
-		printf("Created:\t");
-		PCB_print(p, &error);
+		createProcess(createdQueue, pid++);
 	}
     
     // this will move everything from createdQ to readyQ
@@ -357,11 +466,16 @@ int main() {
 
     // while the wait queues aren't empty, or the ready queue isn't empty, or the current pcb running isn't the idle process
     // basically, while there is a process that isn't done yet
-	while(!PCB_Queue_is_empty(waitingQueueA, &error) || !PCB_Queue_is_empty(waitingQueueB, &error) || get_PQ_size(readyQueue, &error) > 0 || currentPCB != idl) {
+	for (num_loops = 0; num_loops < MAX_NUM_LOOPS; num_loops++) {
+	//while(!PCB_Queue_is_empty(waitingQueueA, &error) || !PCB_Queue_is_empty(waitingQueueB, &error) || !PCB_Priority_Queue_is_empty(readyQueue, &error) || currentPCB != idl) {
 		
 		if (error != PCB_SUCCESS) {
 			printf("\nERROR: error != PCB_SUCCESS");
 			return 1;
+		}
+		
+		if (num_loops % 1000 == 0){
+			createProcess(createdQueue, pid++);
 		}
 		
         /*
