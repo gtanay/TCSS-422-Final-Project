@@ -29,7 +29,7 @@ void Condition_destruct(Condition_p condition, enum PCB_ERROR *error) {
  */
 void Condition_wait(Condition_p condition, Mutex_p mutex, enum PCB_ERROR *error) {
 	PCB_set_state(mutex->owner, PCB_STATE_WAITING, error);
-	PCB_Queue_enqueue(this->waiting, mutex->owner, error);
+	PCB_Queue_enqueue(condition->waiting, mutex->owner, error);
 	Mutex_unlock(mutex, mutex->owner, error);
 }
 
