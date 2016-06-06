@@ -62,8 +62,8 @@ struct PCB {
 	unsigned int starvation_quanta_count; 	// count of the quanta for starvation prevention of PCB
 	enum PCB_PROCESS_TYPE type;				// type of process a PCB is
 
-	unsigned int pair_name;					// name for pairs, if PCB type is producer/consumer
-
+	unsigned int pair_id;					// name for pairs, if PCB type is producer/consumer
+	unsigned long mate_pid;
 
 	unsigned long lock[PCB_TRAP_LENGTH];				// These are the arrays that determine when the process
 	unsigned long trylock[PCB_TRAP_LENGTH];				// Will perform the corresponding behavior.
