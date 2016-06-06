@@ -2,7 +2,6 @@
  * TCSS 422 Final Project
  * Team 4
  * Tempest Parr, Paul Zander, Geoffrey Tanay, Justin Clark
- *
  */
 
 #include <pthread.h>
