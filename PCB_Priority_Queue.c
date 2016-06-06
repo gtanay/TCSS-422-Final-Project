@@ -66,3 +66,32 @@ void PCB_Priority_Queue_print(PCB_Priority_Queue_p pq, enum PCB_ERROR *error) {
 		printf("-*\n");
 	}
 }
+
+/*
+ * Increases the priority of a starved process
+ */
+void PCB_Priority_Queue_promote(PCB_Priority_Queue_p pq, int priority, enum PCB_ERROR *error) {
+	PCB_p pcb = PCB_Queue_dequeue(pq->queues[priority], error);
+	//mark as having the priority boosted
+	if (!pcb->priority_boost) {
+		pcb->priority_boost = 1;
+	}
+	//increase priority and re-enqueue
+	pcb->priority--; 
+	pcb->starvation_quanta_count++;
+	PCB_Priority_Queue_enqueue(pq, pcb, error);	
+}
+
+
+int PCB_Priority_Queue_is_empty(PCB_Priority_Queue_p pq, enum PCB_ERROR *error) {
+	int i = 0;
+	int result = 1;
+	if (pq == NULL) {
+		*error = PCB_NULL_POINTER;
+		return -1;
+	}
+	for (i = 0; i <= PCB_PRIORITY_MAX; i++) {
+		result *= PCB_Queue_is_empty(pq->queues[i], error);
+	}
+	return result;
+}
